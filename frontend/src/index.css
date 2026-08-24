@@ -1,0 +1,375 @@
+/* Geist Sans + Geist Mono (Vercel's font family) */
+@import '@fontsource/geist-sans/300.css';
+@import '@fontsource/geist-sans/400.css';
+@import '@fontsource/geist-sans/500.css';
+@import '@fontsource/geist-sans/600.css';
+@import '@fontsource/geist-sans/700.css';
+@import '@fontsource/geist-mono/400.css';
+@import '@fontsource/geist-mono/500.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --font-sans: 'Geist Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', monospace;
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #000000;
+  color: #ffffff;
+  font-family: var(--font-sans);
+  font-feature-settings: 'ss01', 'cv11';
+  overflow-x: hidden;
+  letter-spacing: -0.011em;
+}
+
+/* Headings — tight tracking, semibold */
+h1, h2, h3, h4 {
+  letter-spacing: -0.04em;
+  font-weight: 600;
+}
+
+/* ============================================
+   LOGO
+   ============================================ */
+
+/* Logo glow — hero logo ambient light */
+.logo-glow {
+  filter: drop-shadow(0 0 50px rgba(255,255,255,0.18)) drop-shadow(0 0 14px rgba(255,255,255,0.07));
+  transition: filter 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Premium grid background */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+/* Radial fade mask for grid */
+.mask-radial {
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 30%, transparent 75%);
+}
+
+/* Soft white glow used on hero */
+.hero-glow {
+  background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.06) 0%, transparent 55%);
+  filter: blur(60px);
+}
+
+/* Smaller soft glow — used behind logo */
+.soft-glow {
+  background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.04) 0%, transparent 60%);
+  filter: blur(28px);
+}
+
+/* Premium card: subtle inner top highlight on hover */
+.card-premium {
+  position: relative;
+  isolation: isolate;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.5s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-premium::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+.card-premium:hover::before {
+  opacity: 1;
+}
+.card-premium::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: radial-gradient(400px circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,0.06), transparent 40%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+  z-index: -1;
+}
+.card-premium:hover::after {
+  opacity: 1;
+}
+
+/* Premium button shine on hover */
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+.btn-shine::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(0,0,0,0.18), transparent);
+  transform: skewX(-20deg);
+  transition: left 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+.btn-shine:hover::after {
+  left: 120%;
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+/* Slow glow pulse for hero ambient */
+@keyframes glowPulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.65; transform: scale(1.04); }
+}
+.animate-glow-pulse {
+  animation: glowPulse 8s ease-in-out infinite;
+}
+
+/* Orbit ring slow rotation */
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-spin-slow {
+  animation: spinSlow 36s linear infinite;
+}
+
+/* Gentle float for logo */
+@keyframes logoFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+.animate-logo-float {
+  animation: logoFloat 6s ease-in-out infinite;
+}
+
+/* Reduced motion respect */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #000000;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+/* Code block — clean background, no per-line stripes */
+pre code {
+  background: transparent !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  border: none !important;
+  border-radius: 0 !important;
+  font-size: 12.5px !important;
+  line-height: 1.6 !important;
+}
+
+/* Selection */
+::selection {
+  background: #ffffff;
+  color: #000000;
+}
+
+/* Message entrance — subtle slide up */
+@keyframes msgEnter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.msg-enter {
+  animation: msgEnter 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Streaming cursor — gentle breathe */
+@keyframes cursorBreathe {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+.cursor-stream {
+  display: inline-block;
+  width: 2px;
+  height: 16px;
+  margin-left: 3px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 1px;
+  vertical-align: text-bottom;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.3);
+  animation: cursorBreathe 1.2s ease-in-out infinite;
+}
+
+
+/* ============================================
+   CHAT PROSE — Premium refinement
+   ============================================ */
+
+/* The "yo" label — lighter, branded feel */
+.chat-ai-label {
+  font-weight: 300;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  opacity: 0.45;
+}
+
+/* AI response body — tighter tracking for editorial feel */
+.prose-chat {
+  letter-spacing: -0.018em;
+}
+
+.prose-chat p {
+  letter-spacing: -0.018em;
+  line-height: 1.65;
+}
+
+/* ── Ordered lists ─────────────────────────── */
+
+.prose-chat ol {
+  counter-reset: chat-list;
+  list-style: none;
+  padding-left: 0;
+  margin-top: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.prose-chat ol > li {
+  counter-increment: chat-list;
+  position: relative;
+  padding-left: 2rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  line-height: 1.65;
+}
+
+.prose-chat ol > li:first-child {
+  margin-top: 0;
+}
+
+.prose-chat ol > li::before {
+  content: counter(chat-list) ".";
+  position: absolute;
+  left: 0;
+  top: 0.05em;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.85em;
+}
+
+/* ── Unordered lists ──────────────────────── */
+
+.prose-chat ul {
+  margin-top: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.prose-chat ul > li {
+  margin-top: 0.6rem;
+  margin-bottom: 0.6rem;
+  line-height: 1.65;
+}
+
+.prose-chat ul > li:first-child {
+  margin-top: 0;
+}
+
+/* ── Bold text — make it pop ───────────────── */
+
+.prose-chat li > strong:first-child {
+  color: #ffffff;
+  font-weight: 600;
+  letter-spacing: -0.022em;
+}
+
+.prose-chat li > strong {
+  margin-right: 0.2em;
+}
+
+/* ── Paragraphs inside list items ──────────── */
+
+.prose-chat li p {
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.prose-chat li p:first-child {
+  margin-top: 0;
+}
+
+.prose-chat li p:last-child {
+  margin-bottom: 0;
+}
+
+/* ── Inline code — warmer ──────────────────── */
+
+.prose-chat code:not(pre code) {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* ── Code blocks — subtler border ──────────── */
+
+.prose-chat pre {
+  border: none !important;
+}
+/* Code block — tight on mobile, comfy on desktop */
+.code-block-pre {
+  padding: 10px 10px !important;
+  border-radius: 0 !important;
+}
+@media (min-width: 640px) {
+  .code-block-pre {
+    padding: 12px 16px !important;
+  }
+}
+/* Force code blocks to fill available width */
+.prose-chat > div > div {
+  max-width: 100% !important;
+  width: 100% !important;
+}

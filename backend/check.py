@@ -1,0 +1,10 @@
+from groq import Groq
+import os
+from dotenv import load_dotenv
+
+load_dotenv(".env")
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+models = client.models.list()
+for m in sorted(models.data, key=lambda x: x.id):
+    print(m.id)

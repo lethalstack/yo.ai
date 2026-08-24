@@ -1,0 +1,23 @@
+# Python virtual environment
+backend/venv/
+
+# Environment variables / secrets
+backend/.env
+.env
+.env.*
+
+# Node dependencies
+frontend/node_modules/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Local database
+backend/chat.db
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
