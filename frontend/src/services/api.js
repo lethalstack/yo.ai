@@ -1,4 +1,4 @@
-const API_URL = `http://${window.location.hostname}:5000`;
+const API_URL = "/api";
 
 
 async function request(endpoint, options = {}) {
