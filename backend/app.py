@@ -565,10 +565,10 @@ def chat():
                 conversation = trim_conversation(conversation, max_tokens=3000)
             else:
                 print("Groq call failed:", repr(e))
-                return jsonify({"error": f"Groq call failed: {e}"}), 500
+                return jsonify({"yo's catching a breath 💀 try again."}), 500
 
     if stream is None:
-        return jsonify({"error": "Failed after retries"}), 500
+        return jsonify({"yo's hit its usage limit for now — try again in a bit 💀"}), 500
 
     def generate():
         accumulated = ""
