@@ -313,7 +313,7 @@ def update_chat(chat_id):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/chat/<int:chat_id>", methods=["GET"])
+@app.route("/api/chat/<int:chat_id>", methods=["GET"])
 def get_chat_messages(chat_id):
     try:
         conn = get_db()
@@ -348,7 +348,7 @@ def get_chat_messages(chat_id):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/chat/<int:chat_id>", methods=["DELETE"])
+@app.route("/api/chat/<int:chat_id>", methods=["DELETE"])
 def delete_chat(chat_id):
     try:
         conn = get_db()
@@ -364,7 +364,7 @@ def delete_chat(chat_id):
         return jsonify({"error": str(e)}), 500
 
 
-@app.route("/chat", methods=["POST"])
+@app.route("/api/chat", methods=["POST"])
 def chat():
     user_message = (request.form.get("message") or "").strip()
     chat_id = request.form.get("chat_id")
