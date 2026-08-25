@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "yo"
 version = "1.0.0"
 description = "Yo - AI Chat Application"
+requires-python = ">=3.12"
 dependencies = [
     "Flask==2.3.0",
     "Flask-CORS==4.0.0",
@@ -16,3 +17,6 @@ dependencies = [
     "Werkzeug==2.3.0",
     "requests==2.31.0"
 ]
+
+[tool.setuptools]
+packages = ["backend"]
