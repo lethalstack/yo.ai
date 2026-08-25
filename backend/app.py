@@ -230,7 +230,7 @@ def save_message(chat_id, stored_user_message, accumulated, is_new_chat):
 
 
 # ── Routes ──
-@app.route("/new-chat", methods=["POST"])
+@app.route("/api/new-chat", methods=["POST"])
 def new_chat():
     data = request.get_json(silent=True) or {}
     mode = data.get("mode")
@@ -247,7 +247,7 @@ def new_chat():
     return jsonify({"chat_id": chat_id})
 
 
-@app.route("/chats", methods=["GET"])
+@app.route("/api/chats", methods=["GET"])
 def get_chats():
     conn = get_db()
     cursor = conn.cursor()
@@ -263,7 +263,7 @@ def get_chats():
     return jsonify(chats)
 
 
-@app.route("/chats/<int:chat_id>", methods=["PATCH"])
+@app.route("/api/chats/<int:chat_id>", methods=["PATCH"])
 def update_chat(chat_id):
     try:
         data = request.get_json(silent=True) or {}
