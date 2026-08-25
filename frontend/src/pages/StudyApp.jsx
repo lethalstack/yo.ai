@@ -50,13 +50,12 @@ export default function StudyApp() {
     refreshChats();
   }, [refreshChats]);
 
-  function handleNewChat() {
-    // don't hit the backend yet — the chat only gets created (and shows
-    // up in the sidebar) once the user actually sends a first message
+ function handleNewChat() {
     setActiveChatId(null);
     setResetSignal(prev => prev + 1);
     setSidebarOpen(false);
-  }
+    refreshChats();
+}
 
   function handleSelectChat(id) {
     setActiveChatId(id);
