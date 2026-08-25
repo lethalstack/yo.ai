@@ -86,7 +86,7 @@ DEFAULT_MODE = "chill"
 
 
 # ── Database ──
-DB_PATH = "chat.db"
+DB_PATH = "/tmp/chat.db" if os.getenv("VERCEL") else "chat.db"
 
 
 def get_db():
