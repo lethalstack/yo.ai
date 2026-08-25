@@ -1,6 +1,6 @@
 {
   "buildCommand": "cd frontend && npm install && npm run build",
-  "installCommand": "npm install --prefix frontend && pip install --requirement backend/requirements.txt",
+  "installCommand": "npm install --prefix frontend && pip install --break-system-packages --requirement backend/requirements.txt",
   "outputDirectory": "frontend/dist",
   "functions": {
     "api/index.py": {
