@@ -120,8 +120,11 @@ class LibsqlCursor:
 class LibsqlConn:
     """Wraps a libsql_client client to behave like a sqlite3 connection."""
     def __init__(self):
+        # Use https:// instead of libsql:// — avoids WebSocket connections,
+        # which don't work reliably in serverless functions like Vercel.
+        http_url = TURSO_DB_URL.replace("libsql://", "https://", 1)
         self._client = libsql_client.create_client_sync(
-            url=TURSO_DB_URL, auth_token=TURSO_DB_TOKEN
+            url=http_url, auth_token=TURSO_DB_TOKEN
         )
 
     def cursor(self):
