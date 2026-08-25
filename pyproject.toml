@@ -1,0 +1,20 @@
+cat > /Users/subhash/Desktop/yo/pyproject.toml << 'EOF'
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yo"
+version = "1.0.0"
+description = "Yo - AI Chat Application"
+dependencies = [
+    "Flask==2.3.0",
+    "Flask-CORS==4.0.0",
+    "python-dotenv==1.0.0",
+    "groq==1.6.0",
+    "openai==1.56.0",
+    "pypdf==3.17.0",
+    "Werkzeug==2.3.0",
+    "requests==2.31.0",
+]
+EOF
