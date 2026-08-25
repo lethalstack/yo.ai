@@ -10,7 +10,7 @@ import io
 import os
 import sqlite3
 import time
-
+import libsql_client
 
 load_dotenv(".env")
 
@@ -84,12 +84,62 @@ MODE_PROMPTS = {
 }
 DEFAULT_MODE = "chill"
 
-
 # ── Database ──
-DB_PATH = "/tmp/chat.db" if os.getenv("VERCEL") else "chat.db"
+TURSO_DB_URL = os.getenv("TURSO_DB_URL")
+TURSO_DB_TOKEN = os.getenv("TURSO_DB_TOKEN")
+USE_TURSO = bool(TURSO_DB_URL)
+
+DB_PATH = "chat.db"  # only used for local dev, when Turso env vars aren't set
+
+
+class LibsqlCursor:
+    """Wraps a libsql_client result to behave like a sqlite3 cursor."""
+    def __init__(self, client):
+        self._client = client
+        self._result = None
+
+    def execute(self, sql, params=None):
+        self._result = self._client.execute(sql, list(params) if params else [])
+        return self
+
+    def fetchone(self):
+        if not self._result.rows:
+            return None
+        return dict(zip(self._result.columns, self._result.rows[0]))
+
+    def fetchall(self):
+        return [dict(zip(self._result.columns, r)) for r in self._result.rows]
+
+    @property
+    def lastrowid(self):
+        if self._result.rows:
+            return self._result.rows[0][0]
+        return None
+
+
+class LibsqlConn:
+    """Wraps a libsql_client client to behave like a sqlite3 connection."""
+    def __init__(self):
+        self._client = libsql_client.create_client_sync(
+            url=TURSO_DB_URL, auth_token=TURSO_DB_TOKEN
+        )
+
+    def cursor(self):
+        return LibsqlCursor(self._client)
+
+    def execute(self, sql, params=None):
+        return self.cursor().execute(sql, params)
+
+    def commit(self):
+        pass  # each statement auto-commits over the Turso HTTP protocol
+
+    def close(self):
+        self._client.close()
 
 
 def get_db():
+    if USE_TURSO:
+        return LibsqlConn()
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
@@ -239,7 +289,7 @@ def new_chat():
 
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO chats (title, mode) VALUES (?, ?)", ("New Chat", mode))
+    cursor.execute("INSERT INTO chats (title, mode) VALUES (?, ?) RETURNING id", ("New Chat", mode))
     chat_id = cursor.lastrowid
     conn.commit()
     conn.close()
