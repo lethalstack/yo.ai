@@ -1,5 +1,4 @@
-python3 << 'PYTHON'
-content = """[build-system]
+[build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
@@ -15,12 +14,5 @@ dependencies = [
     "openai==1.56.0",
     "pypdf==3.17.0",
     "Werkzeug==2.3.0",
-    "requests==2.31.0",
+    "requests==2.31.0"
 ]
-"""
-
-with open('/Users/subhash/Desktop/yo/pyproject.toml', 'w') as f:
-    f.write(content)
-
-print("✓ pyproject.toml created successfully!")
-PYTHON
