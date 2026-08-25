@@ -1,23 +1,20 @@
-# Python virtual environment
-backend/venv/
+cat >> /Users/subhash/Desktop/yo/.gitignore << 'EOF'
 
-# Environment variables / secrets
-backend/.env
+# Environment
 .env
-.env.*
+.env.local
+.env.production.local
+backend/.env
 
-# Node dependencies
-frontend/node_modules/
+# Build outputs
+frontend/dist
+dist
+build
 
-# Python cache
-__pycache__/
-*.py[cod]
-
-# Local database
-backend/chat.db
-
-# macOS
-.DS_Store
-
-# Logs
-*.log
+# Dependencies
+node_modules
+__pycache__
+*.pyc
+.venv
+venv
+EOF

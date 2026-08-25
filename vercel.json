@@ -1,25 +1,26 @@
 {
-  "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python"
-    },
-    {
-      "src": "frontend/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
+  "buildCommand": "cd frontend && npm install && npm run build",
+  "installCommand": "npm install --prefix frontend && pip install --requirement backend/requirements.txt",
+  "outputDirectory": "frontend/dist",
+  "functions": {
+    "api/index.py": {
+      "runtime": "python3.12",
+      "memory": 3008,
+      "maxDuration": 60
     }
-  ],
+  },
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "api/index.py"
+      "dest": "/api/index.py"
     },
     {
       "src": "/(.*)",
-      "dest": "frontend/$1"
+      "dest": "/index.html"
     }
-  ]
+  ],
+  "env": {
+    "GROQ_API_KEY": "@groq_api_key",
+    "OPENROUTER_API_KEY": "@openrouter_api_key"
+  }
 }

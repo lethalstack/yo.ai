@@ -39,7 +39,7 @@ function Logo({ className = '', lightX, lightY }) {
         </motion.span>
       )}
     </span>
-  );
+  );  
 }
 
 export default memo(Logo);
