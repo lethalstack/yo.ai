@@ -9,7 +9,7 @@ import ChatInput from "./ChatInput";
 // LAN IP like 192.168.x.x) instead of a hardcoded 127.0.0.1 — this is
 // what makes the app actually work when opened from a phone on the
 // same network, since "127.0.0.1" on a phone means the phone itself
-const API_BASE = `http://${window.location.hostname}:5000`;
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 const MODE_META = {
   chill: { emoji: "😎", label: "Chill Mode" },
