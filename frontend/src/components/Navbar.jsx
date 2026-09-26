@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import Logo from './Logo';
+import { useAuth } from '../context/AuthContext';
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
-  
+  const { user } = useAuth();
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 16);
     onScroll();
@@ -53,20 +55,33 @@ export default function Navbar() {
             ))}
           </div>
 
+          {/* Desktop CTA — changes based on login state */}
           <div className="hidden md:flex items-center gap-3">
-            <a
-              href="#"
-              className="text-[13px] text-white/45 hover:text-white transition-colors duration-300"
-            >
-              Sign in
-            </a>
-            <Link
-              to="/loading?to=/app"
-              className="btn-shine group relative text-[13px] font-medium px-5 py-2 rounded-full bg-white text-black hover:shadow-[0_0_24px_-6px_rgba(255,255,255,0.5)] transition-all duration-500"
-            >
-              Let's go
-              <span className="ml-1 inline-block transition-transform duration-300 group-hover:translate-x-0.5">→</span>
-            </Link>
+            {user ? (
+              <Link
+                to="/app"
+                className="btn-shine group relative text-[13px] font-medium px-5 py-2 rounded-full bg-white text-black hover:shadow-[0_0_24px_-6px_rgba(255,255,255,0.5)] transition-all duration-500"
+              >
+                Open yo
+                <span className="ml-1 inline-block transition-transform duration-300 group-hover:translate-x-0.5">→</span>
+              </Link>
+            ) : (
+              <>
+                <Link
+                  to="/auth"
+                  className="text-[13px] text-white/45 hover:text-white transition-colors duration-300"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  to="/app"
+                  className="btn-shine group relative text-[13px] font-medium px-5 py-2 rounded-full bg-white text-black hover:shadow-[0_0_24px_-6px_rgba(255,255,255,0.5)] transition-all duration-500"
+                >
+                  Let's go
+                  <span className="ml-1 inline-block transition-transform duration-300 group-hover:translate-x-0.5">→</span>
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile toggle */}
@@ -99,11 +114,11 @@ export default function Navbar() {
               </a>
             ))}
             <Link
-              to="/loading?to=/app"
+              to={user ? "/app" : "/auth"}
               onClick={() => setOpen(false)}
               className="mt-2 inline-flex items-center justify-center px-4 py-2.5 rounded-full bg-white text-black text-[13px] font-medium"
             >
-              let's go →
+              {user ? "open yo →" : "let's go →"}
             </Link>
           </div>
         </motion.div>

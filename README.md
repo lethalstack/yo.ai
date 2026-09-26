@@ -1,7 +1,5 @@
 # yo
 
-> Learn. Build. Level Up.
-
 A Gen-Z AI learning companion landing page — built with React, Vite, Tailwind CSS, and Framer Motion.
 
 ## Design

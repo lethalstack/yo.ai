@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef, useState } from "react";
-import { Plus, ArrowUp, X, FileText, ArrowDown } from "lucide-react";
+import { Plus, ArrowUp, X, FileText, ArrowDown, Mic } from "lucide-react";
 
 // All composer state (message text, attachments) lives HERE, not in
 // ChatWindow. That's the actual fix for the typing lag: before, every
@@ -14,6 +14,15 @@ function ChatInput({ resetSignal, showJumpButton, onJumpToLatest, onSend }) {
   const [attachments, setAttachments] = useState([]);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
+
+    const [listening, setListening] = useState(false);
+  const recognitionRef = useRef(null);
+  const dictationBaseRef = useRef("");
+
+  // stop the mic if the component unmounts mid-dictation
+  useEffect(() => {
+    return () => recognitionRef.current?.stop();
+  }, []);
 
   // "New Chat" was clicked (signaled by the parent via resetSignal) —
   // clear the composer. Same logic that used to live in ChatWindow.
@@ -79,6 +88,43 @@ function ChatInput({ resetSignal, showJumpButton, onJumpToLatest, onSend }) {
       if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
       return prev.filter(a => a.id !== id);
     });
+  }
+
+    function toggleDictation() {
+    if (listening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+
+    const rec = new SpeechRecognition();
+    rec.lang = navigator.language || "en-US";
+    rec.interimResults = true;   // text appears as it's recognized
+    rec.continuous = false;      // one phrase per tap — chat-input sized
+
+    // whatever the user already typed stays; dictation appends after it
+    dictationBaseRef.current = message
+      ? (message.endsWith(" ") ? message : message + " ")
+      : "";
+
+    rec.onresult = (e) => {
+      let transcript = "";
+      for (let i = 0; i < e.results.length; i++) {
+        transcript += e.results[i][0].transcript;
+      }
+      setMessage(dictationBaseRef.current + transcript);
+    };
+
+    rec.onend = () => setListening(false);
+    rec.onerror = (e) => {
+      setListening(false);
+      if (e.error !== "aborted" && e.error !== "no-speech") {
+        console.log("Voice input error:", e.error);
+      }
+    };
+
+    recognitionRef.current = rec;
+    setListening(true);
+    rec.start();
   }
 
   function handleSend() {
@@ -208,6 +254,23 @@ function ChatInput({ resetSignal, showJumpButton, onJumpToLatest, onSend }) {
           >
             <Plus size={19} />
           </button>
+
+                    {SpeechRecognition && (
+            <button
+              type="button"
+              onClick={toggleDictation}
+              className={`
+                shrink-0 w-9 h-9 mb-0.5 flex items-center justify-center
+                rounded-full transition-colors duration-200
+                ${listening
+                  ? "bg-white/10 text-red-400 animate-pulse"
+                  : "text-gray-400 hover:text-white hover:bg-white/10"}
+              `}
+              title={listening ? "Listening… click to stop" : "Voice input"}
+            >
+              <Mic size={18} />
+            </button>
+          )}
 
           <textarea
             ref={textareaRef}

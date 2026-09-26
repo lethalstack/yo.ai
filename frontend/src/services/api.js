@@ -1,137 +1,183 @@
 const API_URL = import.meta.env.VITE_API_URL || "/api";
 
+export class ApiError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.status = status;
+  }
+}
 
 async function request(endpoint, options = {}) {
-  const response = await fetch(
-    `${API_URL}${endpoint}`,
-    options
-  );
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    credentials: "include",
+    ...options,
+  });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || "Something went wrong");
+    const data = await response.json().catch(() => ({}));
+    // expired/invalid session on an app endpoint → back to auth.
+    // /auth/* endpoints are exempt (failed login is also a 401).
+    if (response.status === 401 && !endpoint.startsWith("/auth")) {
+      window.location.assign("/auth");
+    }
+    throw new ApiError(data.error || "Something went wrong", response.status);
   }
 
   return response;
 }
 
+/* ── Auth ── */
 
-// Create new chat
-export async function newChat(mode = "chill") {
-  const response = await request("/new-chat", {
+export async function register(email, password) {
+  const r = await request("/auth/register", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      mode,
-    }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
   });
-
-  return response.json();
+  return r.json();
 }
 
+export async function verify(email, code) {
+  const r = await request("/auth/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, code }),
+  });
+  return r.json();
+}
 
-// Get all chats
+export async function resendVerification(email) {
+  const r = await request("/auth/resend", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  return r.json();
+}
+
+export async function login(email, password) {
+  const r = await request("/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  return r.json();
+}
+
+export async function logout() {
+  const r = await request("/auth/logout", { method: "POST" });
+  return r.json();
+}
+
+export async function me() {
+  const r = await request("/auth/me");
+  return r.json();
+}
+
+export async function forgotPassword(email) {
+  const r = await request("/auth/forgot", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  return r.json();
+}
+
+export async function resetPassword(email, code, new_password) {
+  const r = await request("/auth/reset", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, code, new_password }),
+  });
+  return r.json();
+}
+
+/* ── Chats ── */
+
+export async function newChat(mode = "chill") {
+  const r = await request("/new-chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode }),
+  });
+  return r.json();
+}
+
 export async function getChats() {
-  const response = await request("/chats");
-  return response.json();
+  const r = await request("/chats");
+  return r.json();
 }
 
-
-// Get single chat messages
 export async function getChatMessages(id) {
-  const response = await request(`/chat/${id}`);
-  return response.json();
+  const r = await request(`/chat/${id}`);
+  return r.json();
 }
 
-
-// Get single chat
-export async function getChat(id) {
-  const response = await request(`/chat/${id}`);
-  return response.json();
-}
-
-
-// Send message + files
 export async function sendMessage(chatId, message, files = []) {
   const formData = new FormData();
   formData.append("message", message);
   formData.append("chat_id", chatId);
+  files.forEach((file) => formData.append("files", file));
 
-  files.forEach((file) => {
-    formData.append("files", file);
+  const response = await fetch(`${API_URL}/chat`, {
+    method: "POST",
+    credentials: "include",
+    body: formData,
   });
 
-  const response = await fetch(
-    `${API_URL}/chat`,
-    {
-      method: "POST",
-      body: formData,
-    }
-  );
-
   if (!response.ok) {
-    throw new Error("Failed to send message");
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 401) window.location.assign("/auth");
+    throw new ApiError(data.error || "Failed to send message", response.status);
   }
 
   return response;
 }
 
-
-// Delete chat
 export async function deleteChat(id) {
-  const response = await request(`/chat/${id}`, {
-    method: "DELETE",
-  });
-
-  return response.json();
+  const r = await request(`/chat/${id}`, { method: "DELETE" });
+  return r.json();
 }
 
-
-// Rename chat
 export async function renameChat(id, newTitle) {
-  const response = await request(`/chats/${id}`, {
+  const r = await request(`/chats/${id}`, {
     method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      title: newTitle,
-    }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title: newTitle }),
   });
-
-  return response.json();
+  return r.json();
 }
 
-
-// Pin/unpin chat
 export async function pinChat(id, isPinned) {
-  const response = await request(`/chats/${id}`, {
+  const r = await request(`/chats/${id}`, {
     method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      is_pinned: isPinned,
-    }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ is_pinned: isPinned }),
   });
-
-  return response.json();
+  return r.json();
 }
 
+// remove the pair the user is regenerating/editing, plus everything after it
+export async function truncateMessages(chatId, fromId) {
+  const q = fromId ? `?from_id=${fromId}` : "";
+  const r = await request(`/chat/${chatId}/messages${q}`, { method: "DELETE" });
+  return r.json();
+}
 
-// Set message feedback (thumbsup, thumbsdown, or null)
 export async function setMessageFeedback(messageId, feedback) {
-  const response = await request(`/message/${messageId}/feedback`, {
+  const r = await request(`/message/${messageId}/feedback`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      feedback,
-    }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ feedback }),
   });
+  return r.json();
+}
 
-  return response.json();
+export async function googleSignIn(credential) {
+  const r = await request("/auth/google", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ credential }),
+  });
+  return r.json();
 }

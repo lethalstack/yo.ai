@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, Response, stream_with_context
+from flask import Flask, request, jsonify, Response, stream_with_context, g
 from flask_cors import CORS
 from werkzeug.exceptions import HTTPException
 from dotenv import load_dotenv
@@ -6,18 +6,30 @@ from groq import Groq
 from openai import OpenAI as OpenRouterClient
 from pypdf import PdfReader
 import base64
-import io
 import os
-import sqlite3
 import time
-import libsql_client
 
-load_dotenv(".env")
-
+from backend.db import get_db, init_db
+from backend.auth import auth_bp, require_auth
+load_dotenv("backend/.env")
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}}, methods=["GET", "POST", "DELETE", "PATCH", "OPTIONS"])
 
+# ── CORS ──
+# Prod is same-origin (cookies just work). Local dev is cross-origin
+# (5173 → 5000), so we echo the dev origins and allow credentials.
+_origins = [
+    o.strip() for o in os.getenv(
+        "CORS_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173"
+    ).split(",") if o.strip()
+]
+CORS(app, resources={r"/api/*": {"origins": _origins}}, supports_credentials=True,
+     methods=["GET", "POST", "DELETE", "PATCH", "PUT", "OPTIONS"])
+
+app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024  # Vercel body cap is ~4.5MB
+
+app.register_blueprint(auth_bp)
 
 # ── Clients ──
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
@@ -25,14 +37,15 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 or_client = OpenRouterClient(
     base_url="https://openrouter.ai/api/v1",
     api_key=os.getenv("OPENROUTER_API_KEY"),
-    default_headers={"HTTP-Referer": "http://localhost:5173"}
+    default_headers={"HTTP-Referer": os.getenv("PUBLIC_APP_URL", "http://localhost:5173")}
 )
 
 # ── Models ──
 TEXT_MODEL = "openai/gpt-oss-120b"
 OR_VISION_MODEL = "google/gemini-2.0-flash-exp:free"
 
-MAX_EXTRACTED_CHARS = 6000
+MAX_EXTRACTED_CHARS = 6000   # per uploaded document
+MAX_DOC_CONTEXT_CHARS = 12000  # total stored document context per chat
 
 # ── Prompts ──
 PLAIN_TEXT_INSTRUCTION = (
@@ -84,114 +97,15 @@ MODE_PROMPTS = {
 }
 DEFAULT_MODE = "chill"
 
-# ── Database ──
-TURSO_DB_URL = os.getenv("TURSO_DB_URL")
-TURSO_DB_TOKEN = os.getenv("TURSO_DB_TOKEN")
-USE_TURSO = bool(TURSO_DB_URL)
-
-DB_PATH = "chat.db"  # only used for local dev, when Turso env vars aren't set
-
-
-class LibsqlCursor:
-    """Wraps a libsql_client result to behave like a sqlite3 cursor."""
-    def __init__(self, client):
-        self._client = client
-        self._result = None
-
-    def execute(self, sql, params=None):
-        self._result = self._client.execute(sql, list(params) if params else [])
-        return self
-
-    def fetchone(self):
-        if not self._result.rows:
-            return None
-        return dict(zip(self._result.columns, self._result.rows[0]))
-
-    def fetchall(self):
-        return [dict(zip(self._result.columns, r)) for r in self._result.rows]
-
-    @property
-    def lastrowid(self):
-        if self._result.rows:
-            return self._result.rows[0][0]
-        return None
-
-
-class LibsqlConn:
-    """Wraps a libsql_client client to behave like a sqlite3 connection."""
-    def __init__(self):
-        # Use https:// instead of libsql:// — avoids WebSocket connections,
-        # which don't work reliably in serverless functions like Vercel.
-        http_url = TURSO_DB_URL.replace("libsql://", "https://", 1)
-        self._client = libsql_client.create_client_sync(
-            url=http_url, auth_token=TURSO_DB_TOKEN
-        )
-
-    def cursor(self):
-        return LibsqlCursor(self._client)
-
-    def execute(self, sql, params=None):
-        return self.cursor().execute(sql, params)
-
-    def commit(self):
-        pass  # each statement auto-commits over the Turso HTTP protocol
-
-    def close(self):
-        self._client.close()
-
-
-def get_db():
-    if USE_TURSO:
-        return LibsqlConn()
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-
-def init_db():
-    conn = get_db()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS chats (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL DEFAULT 'New Chat',
-        mode TEXT NOT NULL DEFAULT 'chill',
-        is_pinned INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )
-    """)
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        chat_id INTEGER NOT NULL,
-        user_message TEXT,
-        ai_reply TEXT,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        FOREIGN KEY (chat_id) REFERENCES chats(id)
-    )
-    """)
-
-    conn.commit()
-    conn.close()
-
-
 init_db()
-
-try:
-    _c = get_db()
-    _c.execute("ALTER TABLE chats ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0")
-    _c.commit()
-    _c.close()
-except Exception:
-    pass
 
 
 # ── Helpers ──
 def trim_conversation(conversation, max_tokens=5500):
     """Keep system prompt + as many recent messages as fit.
-    5500 tokens leaves ~2500 for the response within 8000 TPM."""
+    The newest message is ALWAYS kept, even if it alone exceeds the
+    budget — dropping it would send the AI a conversation with no
+    question in it."""
     system = conversation[0] if conversation and conversation[0]["role"] == "system" else None
     messages = conversation[1:] if system else conversation
 
@@ -199,7 +113,7 @@ def trim_conversation(conversation, max_tokens=5500):
     total_chars = 0
     kept = []
 
-    for msg in reversed(messages):
+    for i, msg in enumerate(reversed(messages)):
         content = msg["content"]
         if isinstance(content, list):
             chars = sum(len(p.get("text", "")) for p in content if p.get("type") == "text")
@@ -208,7 +122,7 @@ def trim_conversation(conversation, max_tokens=5500):
         else:
             chars = len(content)
 
-        if total_chars + chars > max_chars:
+        if i > 0 and total_chars + chars > max_chars:
             break
         total_chars += chars
         kept.append(msg)
@@ -264,6 +178,34 @@ def extract_text_from_file(file_storage):
     return None
 
 
+def store_document(cursor, chat_id, filename, content):
+    """Persist extracted document text so it stays available for the
+    rest of the conversation, not just the upload turn. Keeps total
+    stored context per chat under MAX_DOC_CONTEXT_CHARS by evicting
+    the oldest documents first."""
+    cursor.execute(
+        "INSERT INTO documents (chat_id, filename, content) VALUES (?, ?, ?)",
+        (chat_id, filename, content),
+    )
+    cursor.execute("SELECT SUM(LENGTH(content)) AS total FROM documents WHERE chat_id = ?", (chat_id,))
+    total = cursor.fetchone()["total"] or 0
+    while total > MAX_DOC_CONTEXT_CHARS:
+        cursor.execute(
+            "DELETE FROM documents WHERE id = (SELECT id FROM documents WHERE chat_id = ? ORDER BY id ASC LIMIT 1)",
+            (chat_id,),
+        )
+        cursor.execute("SELECT SUM(LENGTH(content)) AS total FROM documents WHERE chat_id = ?", (chat_id,))
+        total = cursor.fetchone()["total"] or 0
+
+
+def get_document_context(cursor, chat_id):
+    cursor.execute("SELECT filename, content FROM documents WHERE chat_id = ? ORDER BY id ASC", (chat_id,))
+    rows = cursor.fetchall()
+    if not rows:
+        return None
+    return "\n\n".join(f"--- Document: {r['filename']} ---\n{r['content']}" for r in rows)
+
+
 def save_message(chat_id, stored_user_message, accumulated, is_new_chat):
     """Persist the completed message pair to the database."""
     try:
@@ -284,6 +226,7 @@ def save_message(chat_id, stored_user_message, accumulated, is_new_chat):
 
 # ── Routes ──
 @app.route("/api/new-chat", methods=["POST"])
+@require_auth
 def new_chat():
     data = request.get_json(silent=True) or {}
     mode = data.get("mode")
@@ -292,8 +235,12 @@ def new_chat():
 
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO chats (title, mode) VALUES (?, ?) RETURNING id", ("New Chat", mode))
-    chat_id = cursor.lastrowid
+    cursor.execute(
+    "INSERT INTO chats (user_id, title, mode) VALUES (?, ?, ?) RETURNING id",
+    (g.user["id"], "New Chat", mode),
+)
+    row = cursor.fetchone()
+    chat_id = row["id"]
     conn.commit()
     conn.close()
 
@@ -301,15 +248,17 @@ def new_chat():
 
 
 @app.route("/api/chats", methods=["GET"])
+@require_auth
 def get_chats():
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("""
         SELECT id, title, mode, is_pinned FROM chats
+        WHERE user_id = ?
         ORDER BY
             (SELECT MAX(created_at) FROM messages WHERE messages.chat_id = chats.id) DESC,
             id DESC
-    """)
+    """, (g.user["id"],))
     rows = cursor.fetchall()
     conn.close()
     chats = [{"id": row["id"], "title": row["title"], "mode": row["mode"], "is_pinned": bool(row["is_pinned"])} for row in rows]
@@ -317,6 +266,7 @@ def get_chats():
 
 
 @app.route("/api/chats/<int:chat_id>", methods=["PATCH"])
+@require_auth
 def update_chat(chat_id):
     try:
         data = request.get_json(silent=True) or {}
@@ -326,7 +276,7 @@ def update_chat(chat_id):
         conn = get_db()
         cursor = conn.cursor()
 
-        cursor.execute("SELECT id FROM chats WHERE id = ?", (chat_id,))
+        cursor.execute("SELECT id FROM chats WHERE id = ? AND user_id = ?", (chat_id, g.user["id"]))
         if cursor.fetchone() is None:
             conn.close()
             return jsonify({"error": "chat not found"}), 404
@@ -367,11 +317,12 @@ def update_chat(chat_id):
 
 
 @app.route("/api/chat/<int:chat_id>", methods=["GET"])
+@require_auth
 def get_chat_messages(chat_id):
     try:
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute("SELECT title, mode FROM chats WHERE id = ?", (chat_id,))
+        cursor.execute("SELECT title, mode FROM chats WHERE id = ? AND user_id = ?", (chat_id, g.user["id"]))
         chat_row = cursor.fetchone()
 
         if chat_row is None:
@@ -379,14 +330,14 @@ def get_chat_messages(chat_id):
             return jsonify({"error": "chat not found"}), 404
 
         cursor.execute(
-            "SELECT user_message, ai_reply FROM messages WHERE chat_id = ? ORDER BY id ASC",
+            "SELECT id, user_message, ai_reply, feedback FROM messages WHERE chat_id = ? ORDER BY id ASC",
             (chat_id,)
         )
         rows = cursor.fetchall()
         conn.close()
 
         messages = [
-            {"user": row["user_message"], "ai": row["ai_reply"]}
+            {"id": row["id"], "user": row["user_message"], "ai": row["ai_reply"], "feedback": row["feedback"]}
             for row in rows
         ]
 
@@ -402,10 +353,16 @@ def get_chat_messages(chat_id):
 
 
 @app.route("/api/chat/<int:chat_id>", methods=["DELETE"])
+@require_auth
 def delete_chat(chat_id):
     try:
         conn = get_db()
         cursor = conn.cursor()
+        cursor.execute("SELECT id FROM chats WHERE id = ? AND user_id = ?", (chat_id, g.user["id"]))
+        if cursor.fetchone() is None:
+            conn.close()
+            return jsonify({"error": "chat not found"}), 404
+        cursor.execute("DELETE FROM documents WHERE chat_id = ?", (chat_id,))
         cursor.execute("DELETE FROM messages WHERE chat_id = ?", (chat_id,))
         cursor.execute("DELETE FROM chats WHERE id = ?", (chat_id,))
         conn.commit()
@@ -417,7 +374,70 @@ def delete_chat(chat_id):
         return jsonify({"error": str(e)}), 500
 
 
+# Regenerate / edit support: remove the message pair the user is
+# regenerating (or editing), plus everything after it, so the database
+# stays consistent with what the UI shows.
+@app.route("/api/chat/<int:chat_id>/messages", methods=["DELETE"])
+@require_auth
+def truncate_messages(chat_id):
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM chats WHERE id = ? AND user_id = ?", (chat_id, g.user["id"]))
+        if cursor.fetchone() is None:
+            conn.close()
+            return jsonify({"error": "chat not found"}), 404
+
+        from_id = request.args.get("from_id", type=int)
+        if from_id:
+            cursor.execute("DELETE FROM messages WHERE chat_id = ? AND id >= ?", (chat_id, from_id))
+        else:
+            cursor.execute(
+                "DELETE FROM messages WHERE id = (SELECT id FROM messages WHERE chat_id = ? ORDER BY id DESC LIMIT 1)",
+                (chat_id,),
+            )
+        conn.commit()
+        conn.close()
+        return jsonify({"ok": True})
+
+    except Exception as e:
+        print("truncate_messages failed:", repr(e))
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/message/<int:message_id>/feedback", methods=["PUT"])
+@require_auth
+def message_feedback(message_id):
+    try:
+        data = request.get_json(silent=True) or {}
+        fb = data.get("feedback")
+        if fb not in ("thumbsup", "thumbsdown", None):
+            return jsonify({"error": "invalid feedback value"}), 400
+
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            """SELECT m.id FROM messages m
+               JOIN chats c ON c.id = m.chat_id
+               WHERE m.id = ? AND c.user_id = ?""",
+            (message_id, g.user["id"]),
+        )
+        if cursor.fetchone() is None:
+            conn.close()
+            return jsonify({"error": "message not found"}), 404
+
+        cursor.execute("UPDATE messages SET feedback = ? WHERE id = ?", (fb, message_id))
+        conn.commit()
+        conn.close()
+        return jsonify({"ok": True})
+
+    except Exception as e:
+        print("message_feedback failed:", repr(e))
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/chat", methods=["POST"])
+@require_auth
 def chat():
     user_message = (request.form.get("message") or "").strip()
     chat_id = request.form.get("chat_id")
@@ -433,7 +453,7 @@ def chat():
     conn = get_db()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT id, title, mode FROM chats WHERE id = ?", (chat_id,))
+    cursor.execute("SELECT id, title, mode FROM chats WHERE id = ? AND user_id = ?", (chat_id, g.user["id"]))
     chat_row = cursor.fetchone()
 
     if chat_row is None:
@@ -448,6 +468,21 @@ def chat():
 
     system_prompt = MODE_PROMPTS.get(chat_row["mode"], MODE_PROMPTS[DEFAULT_MODE])
 
+    # ── Persistent document context (P2) ──
+    # Extracted text is stored per chat, so follow-up questions about an
+    # uploaded PDF still work on later turns. Docs ride inside the system
+    # prompt (never trimmed), capped by MAX_DOC_CONTEXT_CHARS; history
+    # budget shrinks to keep total prompt tokens in check.
+    doc_context = get_document_context(cursor, chat_id)
+    if doc_context:
+        system_prompt += (
+            "\n\nThe user has attached study documents to this conversation. "
+            "Ground your answers in them when relevant:\n" + doc_context
+        )
+        history_budget = 3500
+    else:
+        history_budget = 5500
+
     # ── Build conversation history ──
     conversation = [{"role": "system", "content": system_prompt}]
     for row in history_rows:
@@ -457,11 +492,9 @@ def chat():
     # ── Process uploaded files ──
     image_blocks = []
     extracted_text_chunks = []
-    attachment_labels = []
 
     for f in uploaded_files:
         content_type = f.content_type or ""
-        attachment_labels.append(f.filename)
 
         if content_type.startswith("image/"):
             file_bytes = f.read()
@@ -475,11 +508,14 @@ def chat():
             text = extract_text_from_file(f)
             if text:
                 truncated = text[:MAX_EXTRACTED_CHARS]
+                store_document(cursor, chat_id, f.filename, truncated)
                 extracted_text_chunks.append(f"--- Content of {f.filename} ---\n{truncated}")
             else:
                 extracted_text_chunks.append(f"--- {f.filename}: could not extract readable text (unsupported format) ---")
 
-    prompt_text = user_message or "Please look at the attached file(s)."
+    conn.commit()  # persist any newly stored documents
+
+    prompt_text = user_message or "Please look at the attached file(s). Give me a short summary and the key topics they cover."
     if extracted_text_chunks:
         prompt_text += "\n\n[Attached document content]\n" + "\n\n".join(extracted_text_chunks)
 
@@ -510,7 +546,7 @@ def chat():
             "role": "user",
             "content": [{"type": "text", "text": prompt_text}] + image_blocks
         })
-        or_conversation = trim_conversation(or_conversation)
+        or_conversation = trim_conversation(or_conversation, max_tokens=history_budget)
 
         try:
             or_stream = or_client.chat.completions.create(
@@ -529,7 +565,7 @@ def chat():
                             yield delta
                 except Exception as e:
                     print("OpenRouter streaming failed:", repr(e))
-                    error_note = f"\n\n⚠️ Response cut short — {e}"
+                    error_note = "\n\n⚠️ Response cut short — please try again."
                     accumulated += error_note
                     yield error_note
                 finally:
@@ -539,13 +575,13 @@ def chat():
 
         except Exception as e:
             print("OpenRouter call failed:", repr(e))
-            return jsonify({"error": f"Vision request failed: {e}"}), 500
+            return jsonify({"error": "Vision request failed. Please try again."}), 500
 
     # ══════════════════════════════════════════════════
     #  TEXT ONLY → Groq
     # ══════════════════════════════════════════════════
     conversation.append({"role": "user", "content": prompt_text})
-    conversation = trim_conversation(conversation)
+    conversation = trim_conversation(conversation, max_tokens=history_budget)
 
     stream = None
     for attempt in range(3):
@@ -565,10 +601,10 @@ def chat():
                 conversation = trim_conversation(conversation, max_tokens=3000)
             else:
                 print("Groq call failed:", repr(e))
-                return jsonify({"yo's catching a breath 💀 try again."}), 500
+                return jsonify({"error": "yo's catching a breath 💀 try again."}), 500
 
     if stream is None:
-        return jsonify({"yo's hit its usage limit for now — try again in a bit 💀"}), 500
+        return jsonify({"error": "yo's hit its usage limit for now — try again in a bit 💀"}), 500
 
     def generate():
         accumulated = ""
@@ -580,7 +616,7 @@ def chat():
                     yield delta
         except Exception as e:
             print("Streaming failed mid-response:", repr(e))
-            error_note = f"\n\n⚠️ Response cut short — {e}"
+            error_note = "\n\n⚠️ Response cut short — please try again."
             accumulated += error_note
             yield error_note
         finally:
@@ -595,6 +631,11 @@ def handle_any_error(e):
         return e
     print("Unhandled error:", repr(e))
     return jsonify({"error": str(e)}), 500
+
+
+@app.errorhandler(413)
+def too_large(e):
+    return jsonify({"error": "File too large — keep uploads under 4MB."}), 413
 
 
 @app.route("/")

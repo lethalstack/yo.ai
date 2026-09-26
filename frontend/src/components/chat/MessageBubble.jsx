@@ -3,7 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import "highlight.js/styles/github-dark.css";
-import { Copy, Check, Pencil, X, CheckCircle2, RotateCcw, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Copy, Check, Pencil, X, CheckCircle2, RotateCcw, ThumbsUp, ThumbsDown, FileText } from "lucide-react";
 
 // Custom code block — adds language label + copy button
 function CodeBlock({ children, className }) {
@@ -67,12 +67,12 @@ function CodeBlock({ children, className }) {
 }
 
 function MessageBubble({
-  type, text, streaming, messageId, messageIndex,
+  type, text, streaming, messageId, messageIndex, feedback,
   onRegenerate, onFeedback, onEdit, thinking, images
 }) {
 
   const [copied, setCopied] = useState(false);
-  const [feedbackGiven, setFeedbackGiven] = useState(null);
+  const [feedbackGiven, setFeedbackGiven] = useState(feedback || null);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(text);
   const editTextareaRef = useRef(null);
@@ -274,10 +274,58 @@ function MessageBubble({
             </div>
           )}
           {text && (
-            <>
-                           <div className="bg-white text-black rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed shadow-[0_2px_12px_-2px_rgba(255,255,255,0.08)]">
-                {text}
+  <>
+    {(() => {
+      const attachmentMatch = text.match(/\[attached:\s*(.*?)\]/i);
+      const attachmentName = attachmentMatch?.[1]?.trim();
+      const visibleText = text.replace(/\s*\[attached:\s*.*?\]\s*/i, "").trim();
+
+      return (
+        <>
+          {attachmentName && (
+            <div className="mb-2 flex justify-end">
+              <div
+                className="
+                  flex items-center gap-3
+                  w-[260px] max-w-full
+                  rounded-2xl
+                  border border-black/[0.08]
+                  bg-white
+                  px-3.5 py-3
+                  shadow-[0_2px_12px_-2px_rgba(255,255,255,0.08)]
+                "
+              >
+                <div
+                  className="
+                    w-10 h-10 shrink-0
+                    rounded-xl
+                    bg-black/[0.06]
+                    flex items-center justify-center
+                  "
+                >
+                  <FileText size={19} className="text-gray-700" />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-medium text-black truncate">
+                    {attachmentName}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-gray-500">
+                    PDF document
+                  </p>
+                </div>
               </div>
+            </div>
+          )}
+
+          {visibleText && (
+            <div className="bg-white text-black rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed shadow-[0_2px_12px_-2px_rgba(255,255,255,0.08)]">
+              {visibleText}
+            </div>
+          )}
+        </>
+      );
+    })()}
 
               <div
                 className={`

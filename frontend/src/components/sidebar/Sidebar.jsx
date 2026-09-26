@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from "react";
-import { Trash2, X, PanelLeftClose, Pin, PinOff, Edit2, Check, XCircle, MoreVertical } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Trash2, X, PanelLeftClose, Pin, PinOff, Edit2, Check, XCircle, MoreVertical, LogOut } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import * as api from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 
 const MIN_WIDTH = 220;
 const MAX_WIDTH = 420;
@@ -26,6 +27,14 @@ export default function Sidebar({
     typeof window !== "undefined" ? window.innerWidth >= 640 : true
   );
   const resizingRef = useRef(false);
+
+    const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  async function handleLogout() {
+    await logout();
+    navigate("/");
+  }
 
   const [editingId, setEditingId] = useState(null);
   const [editingTitle, setEditingTitle] = useState("");
@@ -306,16 +315,24 @@ export default function Sidebar({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="mt-auto border-t border-white/10 p-4 shrink-0">
-          <div className="group relative w-full h-11 flex items-center justify-center rounded-xl border border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.05] transition-colors duration-300 overflow-hidden cursor-default">
-            <span className="absolute text-sm font-semibold tracking-[-0.03em] text-white transition-all duration-300 ease-out group-hover:opacity-0 group-hover:-translate-y-2">
-              yo<span className="opacity-40" />
-            </span>
-            <span className="absolute text-sm font-medium text-white/70 opacity-0 translate-y-2 transition-all duration-300 ease-out group-hover:opacity-100 group-hover:translate-y-0">
-              Still Evolving ✨
-            </span>
+                {/* Footer */}
+        <div className="mt-auto border-t border-white/10 p-4 shrink-0 flex flex-col gap-2">
+          <div className="flex items-center gap-1 min-w-0">
+            <div
+              className="flex-1 min-w-0 h-10 px-3 flex items-center rounded-xl border border-white/10 bg-white/[0.02]"
+              title={user?.email}
+            >
+              <span className="text-[13px] text-gray-400 truncate">{user?.email}</span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="shrink-0 w-10 h-10 flex items-center justify-center rounded-xl text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
+              title="Log out"
+            >
+              <LogOut size={15} />
+            </button>
           </div>
+
         </div>
       </div>
 

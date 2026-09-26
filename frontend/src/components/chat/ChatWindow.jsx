@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { getChatMessages, setMessageFeedback } from "../../services/api";
+import * as api from "../../services/api";
 import { PanelLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import MessageBubble from "./MessageBubble";
@@ -50,7 +50,7 @@ export default function ChatWindow({ chatId, resetSignal, sessionMode, onChatCre
 
     async function loadMessages() {
       try {
-        const data = await getChatMessages(chatId);
+      const data = await api.getChatMessages(chatId);
 
       if (data.error) {
         console.error("Failed to load chat:", data.error);
@@ -128,7 +128,7 @@ export default function ChatWindow({ chatId, resetSignal, sessionMode, onChatCre
 
   // Handle message feedback (thumbsup/thumbsdown)
   const handleFeedback = useCallback((messageId, feedback) => {
-    setMessageFeedback(messageId, feedback).catch(err => {
+      api.setMessageFeedback(messageId, feedback).catch(err => {
       console.error("Failed to save feedback:", err);
     });
   }, []);
@@ -170,15 +170,7 @@ setMessages(prev => [
 
       // first message of a brand-new conversation: create the chat row now
       if (!currentChatId) {
-        const newChatRes = await fetch(
-          `${API_BASE}/new-chat`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ mode: sessionMode || "chill" })
-          }
-        );
-        const newChatData = await newChatRes.json();
+        const newChatData = await api.newChat(sessionMode || "chill");
         currentChatId = newChatData.chat_id;
 
         skipNextFetchRef.current = true;
@@ -189,27 +181,11 @@ setMessages(prev => [
         }
       }
 
-      const formData = new FormData();
-      formData.append("message", userMessage);
-      formData.append("chat_id", currentChatId);
-      pendingAttachments.forEach(a => {
-        formData.append("files", a.file);
-      });
-
-      // no Content-Type header here on purpose — the browser sets the
-      // correct multipart boundary automatically for FormData
-      const response = await fetch(
-        `${API_BASE}/chat`,
-        {
-          method: "POST",
-          body: formData
-        }
+      const response = await api.sendMessage(
+        currentChatId,
+        userMessage,
+        pendingAttachments.map((a) => a.file)
       );
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || `Request failed (${response.status})`);
-      }
 
       // stream the reply in as it arrives, updating the last bubble live
       // instead of waiting for the whole response — throttled to avoid
@@ -260,6 +236,17 @@ setMessages(prev => [
         )
       );
 
+            // pick up real message IDs from the DB (needed for feedback,
+      // regenerate and edit) — silent, no scroll jump
+      try {
+        const fresh = await api.getChatMessages(currentChatId);
+        if (Array.isArray(fresh.messages)) {
+          setMessages(fresh.messages);
+        }
+      } catch (e) {
+        console.log("Post-stream refresh failed:", e);
+      }
+
       // backend may have just auto-titled this chat (first message) —
       // refresh the sidebar so the real title shows up
       refreshChats();
@@ -283,31 +270,38 @@ setMessages(prev => [
 
   // Regenerate the latest AI response
   // Called with messageIndex to regenerate that specific message
-  const handleRegenerate = useCallback((messageIndex) => {
-    // messageIndex is the pair index, user message is in same pair!
-    const userMessage = messages[messageIndex]?.user;
-    
+    const handleRegenerate = useCallback(async (messageIndex) => {
+    const pair = messages[messageIndex];
+    if (!pair || !chatId) return;
+    const userMessage = pair.user;
     if (!userMessage) return;
-    
-    // Remove the current pair and resend the user message
-    setMessages(prev => prev.slice(0, messageIndex)); 
-    
-    // Re-send the user message from the same pair
-    const pendingAttachments = [];
-    sendMessage(userMessage, pendingAttachments);
-  }, [messages, sendMessage]);
 
-  const handleEditMessage = useCallback((messageIndex, newText) => {
-  // slice off this message and everything after it (the old AI reply)
-  setMessages(prev => prev.slice(0, messageIndex));
+    try {
+      await api.truncateMessages(chatId, pair.id);
+    } catch (e) {
+      console.error("Truncate failed:", e);
+      return;
+    }
 
-  // re-send the edited text — attachments from the original message
-  // are intentionally dropped (re-uploading them would require keeping
-  // the File objects around, which is fragile and rarely what you want
-  // when editing text)
-  shouldAutoScrollRef.current = true;
-  sendMessage(newText, []);
-}, [sendMessage]);
+    setMessages(prev => prev.slice(0, messageIndex));
+    sendMessage(userMessage, []);
+  }, [messages, chatId, sendMessage]);
+
+  const handleEditMessage = useCallback(async (messageIndex, newText) => {
+    const pair = messages[messageIndex];
+    if (!pair || !chatId) return;
+
+    try {
+      await api.truncateMessages(chatId, pair.id);
+    } catch (e) {
+      console.error("Truncate failed:", e);
+      return;
+    }
+
+    shouldAutoScrollRef.current = true;
+    setMessages(prev => prev.slice(0, messageIndex));
+    sendMessage(newText, []);
+  }, [messages, chatId, sendMessage]);
 
 
   return (
@@ -400,7 +394,8 @@ setMessages(prev => [
       text={msg.ai}
       streaming={msg.streaming}
       thinking={msg.thinking}
-      messageId={msg.messageId}
+      messageId={msg.id}
+      feedback={msg.feedback}
       messageIndex={index}
       onRegenerate={handleRegenerate}
       onFeedback={handleFeedback}
