@@ -1,4 +1,3 @@
-cat > /Users/subhash/Desktop/yo/.gitignore << 'EOF'
 # Python
 __pycache__/
 *.py[cod]
@@ -14,7 +13,6 @@ backend/venv/
 backend/.env
 frontend/.env
 frontend/.env.*
-!.env.example
 
 # Build output
 dist/
@@ -43,4 +41,5 @@ node_modules/
 npm-debug.log
 yarn-error.log
 
+# Vercel
 .vercel/

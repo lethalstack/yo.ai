@@ -1,6 +1,7 @@
 import Sidebar from "../components/sidebar/Sidebar";
 import ChatWindow from "../components/chat/ChatWindow";
 import { useEffect, useState, useCallback } from "react";
+import { useAuth } from "../context/AuthContext";
 import { useSearchParams } from "react-router-dom";
 import * as api from "../services/api";
 
@@ -13,6 +14,8 @@ import * as api from "../services/api";
 const VALID_MODES = ["chill", "exam", "coding", "interview"];
 
 export default function StudyApp() {
+
+  const { user } = useAuth();
 
   const [searchParams] = useSearchParams();
 
@@ -85,7 +88,7 @@ export default function StudyApp() {
 
   return (
 
-    <div className="flex h-dvh bg-black relative overflow-hidden">
+      <div className="flex h-dvh bg-black relative overflow-hidden sm:p-3 sm:gap-3">
 
       <Sidebar
         chats={chats}
@@ -100,9 +103,10 @@ export default function StudyApp() {
         refreshChats={refreshChats}
       />
 
-      <div className="flex-1 text-white min-w-0">
+      <div className="flex-1 text-white min-w-0 sm:rounded-2xl sm:border sm:border-white/[0.08] sm:overflow-hidden">
 
         <ChatWindow
+          user={user}
           chatId={activeChatId}
           resetSignal={resetSignal}
           sessionMode={sessionMode}

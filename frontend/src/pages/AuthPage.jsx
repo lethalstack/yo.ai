@@ -10,6 +10,7 @@ const STEP = Object.freeze({
   LOGIN: "login",
   SIGNUP: "signup",
   VERIFY: "verify",
+  USERNAME: "username",
   FORGOT: "forgot",
   RESET: "reset",
 });
@@ -32,6 +33,7 @@ export default function AuthPage() {
     searchParams.get("mode") === "signup" ? STEP.SIGNUP : STEP.LOGIN
   );
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [code, setCode] = useState("");
@@ -54,13 +56,29 @@ useEffect(() => {
     if (step === STEP.VERIFY) codeRef.current?.focus();
   }, [step]);
 
-  // already signed in and visiting /auth → straight into the app
-if (!loading && user) return <Navigate to={from} replace />;
+function clearMessages() {
+  setError("");
+  setNotice("");
+}
 
-  function clearMessages() {
-    setError("");
-    setNotice("");
+useEffect(() => {
+  function handleUsernameRequired() {
+    clearMessages();
+    setUsername("");
+    setStep(STEP.USERNAME);
   }
+
+  window.addEventListener("yo:username-required", handleUsernameRequired);
+
+  return () => {
+    window.removeEventListener("yo:username-required", handleUsernameRequired);
+  };
+}, []);
+
+// already signed in and visiting /auth → straight into the app
+if (!loading && user && user.username) {
+  return <Navigate to={from} replace />;
+}
 
   async function handleLogin(e) {
     e.preventDefault();
@@ -68,7 +86,12 @@ if (!loading && user) return <Navigate to={from} replace />;
     setBusy(true);
     try {
       const d = await api.login(email.trim(), password);
-      setUser(d.user);
+      if (!d.user?.username) {
+        setUsername("");
+        setStep(STEP.USERNAME);
+      } else {
+        setUser(d.user);
+      }
     } catch (err) {
       if (err.status === 403) {
         setStep(STEP.VERIFY);
@@ -90,7 +113,7 @@ if (!loading && user) return <Navigate to={from} replace />;
     }
     setBusy(true);
     try {
-      await api.register(email.trim(), password);
+      await api.register(username.trim(), email.trim(), password);
       setStep(STEP.VERIFY);
       setNotice(`We sent a 6-digit code to ${email.trim()}.`);
       setCooldown(30);
@@ -100,6 +123,36 @@ if (!loading && user) return <Navigate to={from} replace />;
       setBusy(false);
     }
   }
+
+  async function handleUsernameSetup(e) {
+  e.preventDefault();
+  clearMessages();
+
+  const cleanUsername = username.trim();
+
+  if (!/^[A-Za-z0-9_]{3,20}$/.test(cleanUsername)) {
+    setError(
+      "Username must be 3–20 characters using only letters, numbers, or underscores."
+    );
+    return;
+  }
+
+  setBusy(true);
+
+  try {
+    const d = await api.setUsername(cleanUsername);
+
+    if (!d.user) {
+      throw new Error("Unable to save username.");
+    }
+
+    setUser(d.user);
+  } catch (err) {
+    setError(err.message || "Unable to save username.");
+  } finally {
+    setBusy(false);
+  }
+}
 
   async function handleVerify(e) {
     e.preventDefault();
@@ -241,6 +294,18 @@ if (!loading && user) return <Navigate to={from} replace />;
             {step === STEP.SIGNUP && (
               <>
                 <form onSubmit={handleSignup} className="flex flex-col gap-3">
+                  <input
+                    className={inputCls}
+                    type="text"
+                    placeholder="username"
+                    autoComplete="username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    required
+                    minLength={3}
+                    maxLength={20}
+                  />
+
                   <input className={inputCls} type="email" placeholder="email" autoComplete="email"
                     value={email} onChange={(e) => setEmail(e.target.value)} required />
                   <input className={inputCls} type="password" placeholder="password (min 8 characters)" autoComplete="new-password"
@@ -290,6 +355,34 @@ if (!loading && user) return <Navigate to={from} replace />;
                 <button type="button" onClick={() => { clearMessages(); setStep(STEP.SIGNUP); }}
                   className="text-[13px] text-gray-600 hover:text-gray-400 transition-colors">
                   Wrong email? Go back
+                </button>
+              </form>
+            )}
+
+            {step === STEP.USERNAME && (
+              <form onSubmit={handleUsernameSetup} className="flex flex-col gap-3">
+                <div className="text-center mb-2">
+                  <h2 className="text-white text-base font-medium">Choose your username</h2>
+                  <p className="text-[13px] text-gray-500 mt-1">
+                    This is how you'll appear in yo.
+                  </p>
+                </div>
+
+                <input
+                  className={inputCls}
+                  type="text"
+                  placeholder="username"
+                  autoComplete="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  minLength={3}
+                  maxLength={20}
+                  pattern="[A-Za-z0-9_]{3,20}"
+                />
+
+                <button className={btnCls} disabled={busy}>
+                  {busy ? "..." : "Continue"}
                 </button>
               </form>
             )}

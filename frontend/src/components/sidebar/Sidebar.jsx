@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Trash2, X, PanelLeftClose, Pin, PinOff, Edit2, Check, XCircle, MoreVertical, LogOut } from "lucide-react";
+import { Trash2, X, PanelLeftClose, Pin, PinOff, Edit2, Check, XCircle, MoreVertical, Settings, Download, LogOut, ArrowLeft, ChevronRight } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import * as api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
@@ -31,9 +31,85 @@ export default function Sidebar({
     const { user, logout } = useAuth();
   const navigate = useNavigate();
 
-  async function handleLogout() {
+    async function handleLogout() {
+    setConfirmLogout(false);
+    setSettingsOpen(false);
     await logout();
     navigate("/");
+  }
+
+  // Frontend-only export: fetches the active chat's messages on demand
+  // and downloads them as a markdown file. No backend involved.
+  async function handleExportChat() {
+    if (!activeChatId || exporting) return;
+    setExporting(true);
+    try {
+      const data = await api.getChatMessages(activeChatId);
+      const msgs = Array.isArray(data?.messages) ? data.messages : [];
+      if (msgs.length === 0) return;
+
+      const lines = [
+        `# ${data.title || "Chat"}`,
+        ``,
+        `_Exported from yo — ${new Date().toLocaleString()}_`,
+        ``,
+      ];
+      for (const m of msgs) {
+        if (m.user) lines.push(`**You:**`, ``, m.user, ``);
+        if (m.ai) lines.push(`**yo:**`, ``, m.ai, ``);
+      }
+
+      const slug =
+        (data.title || "chat")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 40) || "chat";
+
+      const blob = new Blob([lines.join("\n")], { type: "text/markdown;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `yo-${slug}.md`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Export failed:", e);
+    } finally {
+      setExporting(false);
+    }
+  }
+
+    // The one account action the backend actually supports today
+  // (POST /api/auth/username). Merged into the existing user object —
+  // the endpoint's response omits profile_picture, and overwriting the
+  // whole user would blank the avatar until the next /me fetch.
+  async function saveUsername() {
+    const next = (usernameDraft || "").trim();
+    if (!next || next === user?.username) {
+      setUsernameDraft(null);
+      setUsernameError("");
+      return;
+    }
+    if (!/^[A-Za-z0-9_]{3,20}$/.test(next)) {
+      setUsernameError("3–20 characters — letters, numbers, underscores only.");
+      return;
+    }
+    setUsernameSaving(true);
+    setUsernameError("");
+    try {
+      const d = await api.setUsername(next);
+      if (d.user?.username) {
+        setUser(prev => ({ ...prev, username: d.user.username }));
+      }
+      setUsernameDraft(null);
+    } catch (e) {
+      setUsernameError(e.message || "Couldn't save username.");
+    } finally {
+      setUsernameSaving(false);
+    }
   }
 
   const [editingId, setEditingId] = useState(null);
@@ -42,6 +118,13 @@ export default function Sidebar({
 
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [menuState, setMenuState] = useState(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [settingsView, setSettingsView] = useState("settings"); // "settings" | "account"
+  const [usernameDraft, setUsernameDraft] = useState(null); // null = not editing
+  const [usernameSaving, setUsernameSaving] = useState(false);
+  const [usernameError, setUsernameError] = useState("");
 
   // Lock body scroll on mobile
   useEffect(() => {
@@ -63,7 +146,9 @@ export default function Sidebar({
   useEffect(() => {
     function onMouseMove(e) {
       if (!resizingRef.current) return;
-      setWidth(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, e.clientX)));
+      // −12: sidebar's left edge now sits at the container's sm:p-3 padding,
+      // so raw clientX would leave the handle trailing the cursor by 12px
+      setWidth(Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, e.clientX - 12)));
     }
     function onMouseUp() {
       if (resizingRef.current) {
@@ -110,6 +195,38 @@ export default function Sidebar({
     el.addEventListener("scroll", onScroll, { passive: true });
     return () => el.removeEventListener("scroll", onScroll);
   }, [menuState]);
+
+    // Close settings panel on outside tap — same pattern as the chat menu
+  useEffect(() => {
+    if (!settingsOpen) return;
+    const close = (e) => {
+      if (
+        !e.target.closest("[data-settings-btn]") &&
+        !e.target.closest("[data-settings-panel]")
+      ) {
+        setSettingsOpen(false);
+        setConfirmLogout(false);
+      }
+    };
+    const t = setTimeout(() => {
+      document.addEventListener("pointerdown", close);
+    }, 0);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener("pointerdown", close);
+    };
+  }, [settingsOpen]);
+
+  // never reopen the panel with stale state — logout confirm, a
+  // half-finished username edit, or the account view itself
+  useEffect(() => {
+    if (!settingsOpen) {
+      setConfirmLogout(false);
+      setUsernameDraft(null);
+      setUsernameError("");
+      setSettingsView("settings");
+    }
+  }, [settingsOpen]);
 
   function startResize(e) {
     e.preventDefault();
@@ -213,11 +330,11 @@ export default function Sidebar({
       <div
         style={isDesktop ? { width } : undefined}
         className={`
-          fixed sm:relative inset-y-0 left-0 z-40 sm:z-auto
+          fixed sm:relative inset-y-2 left-2 sm:inset-auto z-40 sm:z-auto
           w-[280px] sm:w-64
-          h-dvh bg-neutral-950 border-r border-white/10
+          bg-neutral-950 border border-white/10 rounded-2xl shadow-2xl shadow-black/40
           text-gray-300 flex flex-col
-          ${isOpen ? "translate-x-0" : "-translate-x-full"}
+          ${isOpen ? "translate-x-0" : "translate-x-[calc(-100%_-_0.5rem)]"}
           sm:translate-x-0 transition-transform duration-300 ease-out
           will-change-transform
         `}
@@ -225,7 +342,7 @@ export default function Sidebar({
         {/* Desktop drag handle */}
         <div
           onMouseDown={startResize}
-          className="hidden sm:block absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-white/15 active:bg-white/25 transition-colors z-10"
+          className="hidden sm:block absolute top-3 right-0 bottom-3 w-1 cursor-col-resize hover:bg-white/15 active:bg-white/25 transition-colors z-10"
         />
 
         {/* Header */}
@@ -317,24 +434,246 @@ export default function Sidebar({
 
                 {/* Footer */}
         <div className="mt-auto border-t border-white/10 p-4 shrink-0 flex flex-col gap-2">
-          <div className="flex items-center gap-1 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
             <div
-              className="flex-1 min-w-0 h-10 px-3 flex items-center rounded-xl border border-white/10 bg-white/[0.02]"
-              title={user?.email}
+              className="flex-1 min-w-0 h-10 px-2.5 flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.02]"
+              title={user?.username}
             >
-              <span className="text-[13px] text-gray-400 truncate">{user?.email}</span>
+              {user?.profile_picture ? (
+                <img
+                  src={user.profile_picture}
+                  alt=""
+                  className="w-7 h-7 rounded-full object-cover shrink-0"
+                />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+                  <span className="text-[11px] text-gray-400">
+                    {(user?.username || "?").charAt(0).toUpperCase()}
+                  </span>
+                </div>
+              )}
+
+              <span className="text-[13px] text-gray-400 truncate">
+                {user?.username || "Set username"}
+              </span>
             </div>
+
             <button
-              onClick={handleLogout}
-              className="shrink-0 w-10 h-10 flex items-center justify-center rounded-xl text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
-              title="Log out"
+              data-settings-btn
+              onClick={() => setSettingsOpen(v => !v)}
+              className={`shrink-0 w-10 h-10 flex items-center justify-center rounded-xl transition-colors ${
+                settingsOpen
+                  ? "text-white bg-white/10"
+                  : "text-gray-500 hover:text-white hover:bg-white/10"
+              }`}
+              title="Settings"
             >
-              <LogOut size={15} />
+              <Settings size={16} />
             </button>
           </div>
-
         </div>
-      </div>
+
+
+                 {/* Floating Settings panel — two views: settings / account */}
+      {settingsOpen && (
+        <div data-settings-panel className="absolute bottom-20 left-3 right-3 z-50">
+          <div className="max-h-[min(440px,calc(100dvh-10rem))] flex flex-col rounded-2xl border border-white/[0.08] bg-neutral-900/95 backdrop-blur-xl shadow-2xl shadow-black/50 overflow-hidden">
+
+            {/* header */}
+            <div className="shrink-0 flex items-center justify-between pl-4 pr-2.5 py-2.5">
+              <p className="text-[13px] font-medium text-white">
+                {settingsView === "account" ? "Account" : "Settings"}
+              </p>
+
+              {settingsView === "account" ? (
+                <div className="flex items-center gap-0.5">
+                  <button
+                    onClick={() => setSettingsView("settings")}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
+                    title="Back"
+                  >
+                    <ArrowLeft size={14} />
+                  </button>
+                  <button
+                    onClick={() => setSettingsOpen(false)}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
+                    title="Close"
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setSettingsOpen(false)}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
+                  title="Close"
+                >
+                  <X size={15} />
+                </button>
+              )}
+            </div>
+
+            <div className="overflow-y-auto px-2 pb-2">
+              {settingsView === "settings" ? (
+
+                /* ── SETTINGS VIEW ── */
+                <>
+                  {/* identity — the main account surface */}
+                  <button
+                    onClick={() => setSettingsView("account")}
+                    className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl hover:bg-white/[0.05] transition-colors text-left"
+                  >
+                    {user?.profile_picture ? (
+                      <img
+                        src={user.profile_picture}
+                        alt=""
+                        className="w-10 h-10 rounded-full object-cover shrink-0"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center shrink-0">
+                        <span className="text-[14px] text-gray-400">
+                          {(user?.username || "?").charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[14px] font-medium text-gray-100 truncate">
+                        {user?.username || "Set username"}
+                      </p>
+                      <p className="text-[11px] text-gray-500 truncate">
+                        {user?.email || "yo account"}
+                      </p>
+                    </div>
+
+                    <ChevronRight size={15} className="text-gray-600 shrink-0" />
+                  </button>
+
+                  {/* actions — spacing only, no dividers */}
+                  <div className="pt-1.5 flex flex-col gap-0.5">
+                    <button
+                      onClick={handleExportChat}
+                      disabled={!activeChatId || exporting}
+                      className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-left text-gray-400 hover:text-white hover:bg-white/[0.05] disabled:opacity-40 disabled:pointer-events-none transition-colors"
+                    >
+                      <Download size={15} className="shrink-0 text-gray-500" />
+                      <span className="text-[13px]">
+                        {exporting ? "Preparing…" : "Export current chat"}
+                      </span>
+                    </button>
+
+                    {confirmLogout ? (
+                      <div className="flex items-center gap-1 rounded-xl bg-white/[0.04] border border-white/10 p-1">
+                        <span className="flex-1 min-w-0 px-2 text-[12px] text-gray-300 truncate">
+                          Log out of yo?
+                        </span>
+                        <button
+                          onClick={handleLogout}
+                          className="shrink-0 h-7 px-2.5 rounded-lg text-[12px] font-medium text-red-400 hover:bg-red-500/15 transition-colors"
+                        >
+                          Log out
+                        </button>
+                        <button
+                          onClick={() => setConfirmLogout(false)}
+                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmLogout(true)}
+                        className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-white/[0.05] transition-colors text-left"
+                      >
+                        <LogOut size={15} className="shrink-0 text-gray-500" />
+                        <span className="text-[13px]">Log out</span>
+                      </button>
+                    )}
+                  </div>
+                </>
+
+              ) : (
+
+                /* ── ACCOUNT VIEW ── */
+                <>
+                  <div className="flex flex-col items-center text-center px-4 pt-2 pb-4">
+                    {user?.profile_picture ? (
+                      <img
+                        src={user.profile_picture}
+                        alt=""
+                        className="w-14 h-14 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-14 h-14 rounded-full bg-white/10 flex items-center justify-center">
+                        <span className="text-lg text-gray-400">
+                          {(user?.username || "?").charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+
+                    <p className="mt-2.5 text-[15px] font-medium text-white truncate max-w-full">
+                      {user?.username || "Set username"}
+                    </p>
+                    <p className="text-[12px] text-gray-500 mt-0.5 truncate max-w-full">
+                      {user?.email || "yo account"}
+                    </p>
+                  </div>
+
+                  {/* actions — only what the backend actually supports */}
+                  <div className="flex flex-col gap-0.5">
+                    {usernameDraft === null ? (
+                      <button
+                        onClick={() => {
+                          setUsernameError("");
+                          setUsernameDraft(user?.username || "");
+                        }}
+                        className="w-full flex items-center gap-3 px-2.5 py-2.5 rounded-xl text-left text-gray-400 hover:text-white hover:bg-white/[0.05] transition-colors"
+                      >
+                        <Edit2 size={15} className="shrink-0 text-gray-500" />
+                        <span className="text-[13px]">Edit username</span>
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-1.5 px-2 py-1 rounded-xl bg-white/[0.04] border border-white/10">
+                        <input
+                          autoFocus
+                          value={usernameDraft}
+                          maxLength={20}
+                          onChange={(e) => setUsernameDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveUsername();
+                            if (e.key === "Escape") { setUsernameDraft(null); setUsernameError(""); }
+                          }}
+                          className="flex-1 min-w-0 bg-transparent outline-none text-[13px] text-white placeholder:text-gray-600"
+                          placeholder="username"
+                        />
+                        <button
+                          onClick={saveUsername}
+                          disabled={usernameSaving}
+                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-green-400 hover:bg-white/10 transition-colors disabled:opacity-40"
+                          title="Save"
+                        >
+                          <Check size={15} />
+                        </button>
+                        <button
+                          onClick={() => { setUsernameDraft(null); setUsernameError(""); }}
+                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors"
+                          title="Cancel"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    )}
+                    {usernameError && (
+                      <p className="px-2.5 pt-1 text-[11px] text-red-400">{usernameError}</p>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
 
       {/* Fixed dropdown */}
       {menuState && (() => {

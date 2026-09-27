@@ -5,6 +5,7 @@ import AppPage from "./pages/AppPage";
 import StudyApp from "./pages/StudyApp";
 import Loading from "./pages/Loading";
 import AuthPage from "./pages/AuthPage";
+import SettingsPage from "./pages/SettingsPage";
 
 export default function App() {
   return (
@@ -19,6 +20,15 @@ export default function App() {
             element={
               <RequireAuth>
                 <StudyApp />
+              </RequireAuth>
+            }
+            
+          />
+          <Route
+            path="/settings"
+            element={
+              <RequireAuth>
+                <SettingsPage />
               </RequireAuth>
             }
           />

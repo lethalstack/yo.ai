@@ -68,22 +68,37 @@ def require_auth(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
         raw = request.cookies.get(SESSION_COOKIE)
+        print("[AUTH DEBUG] cookie present:", bool(raw))
+
         if not raw:
             return jsonify({"error": "authentication required"}), 401
+
         conn = get_db()
         cur = conn.cursor()
+
         cur.execute(
-            """SELECT users.id, users.email FROM sessions
-               JOIN users ON users.id = sessions.user_id
-               WHERE sessions.token_hash = ? AND sessions.expires_at > ?""",
+            """SELECT users.id, users.email, users.username, users.profile_picture
+            FROM sessions
+            JOIN users ON users.id = sessions.user_id
+            WHERE sessions.token_hash = ? AND sessions.expires_at > ?""",
             (_hash(raw), _now()),
         )
+
         row = cur.fetchone()
         conn.close()
+
         if not row:
             return jsonify({"error": "authentication required"}), 401
-        g.user = {"id": row["id"], "email": row["email"]}
+
+        g.user = {
+            "id": row["id"],
+            "email": row["email"],
+            "username": row["username"],
+            "profile_picture": row["profile_picture"],
+        }
+
         return f(*args, **kwargs)
+
     return wrapper
 
 
@@ -115,10 +130,16 @@ def _issue_code(cur, user_id, purpose):
 def register():
     data = request.get_json(silent=True) or {}
     email = (data.get("email") or "").strip().lower()
+    username = (data.get("username") or "").strip()
     password = data.get("password") or ""
 
     if not EMAIL_RE.match(email):
         return jsonify({"error": "Enter a valid email address."}), 400
+    if not re.fullmatch(r"[A-Za-z0-9_]{3,20}", username):
+        return jsonify({
+        "error": "Username must be 3–20 characters using only letters, numbers, or underscores."
+    }), 400
+
     if len(password) < 8:
         return jsonify({"error": "Password must be at least 8 characters."}), 400
     if not _allow(f"reg:{request.remote_addr}", 10, 600):
@@ -126,8 +147,21 @@ def register():
 
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT id, email_verified FROM users WHERE lower(email) = ?", (email,))
+    cur.execute(
+    "SELECT id, email_verified FROM users WHERE lower(email) = ?",
+    (email,),
+    )
     row = cur.fetchone()
+
+    cur.execute(
+        "SELECT id FROM users WHERE lower(username) = lower(?)",
+        (username,),
+    )
+    username_row = cur.fetchone()
+
+    if username_row and (not row or username_row["id"] != row["id"]):
+        conn.close()
+        return jsonify({"error": "That username is already taken."}), 409
 
     if row and row["email_verified"]:
         conn.close()
@@ -135,13 +169,16 @@ def register():
 
     pw_hash = generate_password_hash(password)
     if row:
-        # unverified signup restarted — update password, reissue code
+        # unverified signup restarted — update username + password, reissue code
         user_id = row["id"]
-        cur.execute("UPDATE users SET password_hash = ? WHERE id = ?", (pw_hash, user_id))
+        cur.execute(
+            "UPDATE users SET username = ?, password_hash = ? WHERE id = ?",
+            (username, pw_hash, user_id),
+        )
     else:
         cur.execute(
-            "INSERT INTO users (email, password_hash) VALUES (?, ?) RETURNING id",
-            (email, pw_hash),
+            "INSERT INTO users (email, username, password_hash) VALUES (?, ?, ?) RETURNING id",
+            (email, username, pw_hash),
         )
         user_id = cur.lastrowid
 
@@ -174,6 +211,8 @@ def verify():
     cur = conn.cursor()
     cur.execute("SELECT id, email_verified FROM users WHERE lower(email) = ?", (email,))
     row = cur.fetchone()
+    print("[AUTH DEBUG] session found:", bool(row))
+
     if not row:
         conn.close()
         return jsonify({"error": "Invalid or expired code."}), 400
@@ -196,10 +235,20 @@ def verify():
         cur.execute("UPDATE users SET email_verified = 1 WHERE id = ?", (user_id,))
 
     token = _create_session(cur, user_id)  # verified → straight into the app
+
+    cur.execute("SELECT username FROM users WHERE id = ?", (user_id,))
+    user_row = cur.fetchone()
+
     conn.commit()
     conn.close()
 
-    resp = jsonify({"user": {"id": user_id, "email": email}})
+    resp = jsonify({
+        "user": {
+            "id": user_id,
+            "email": email,
+            "username": user_row["username"] if user_row else None,
+        }
+    })
     return _set_session_cookie(resp, token)
 
 
@@ -249,7 +298,10 @@ def login():
     conn = get_db()
     cur = conn.cursor()
     cur.execute("DELETE FROM sessions WHERE expires_at < ?", (_now(),))  # hygiene
-    cur.execute("SELECT id, email_verified, password_hash FROM users WHERE lower(email) = ?", (email,))
+    cur.execute(
+    "SELECT id, email_verified, password_hash, username FROM users WHERE lower(email) = ?",
+    (email,),
+    )
     row = cur.fetchone()
 
     if not row or not check_password_hash(row["password_hash"], password):
@@ -264,7 +316,13 @@ def login():
     conn.commit()
     conn.close()
 
-    resp = jsonify({"user": {"id": row["id"], "email": email}})
+    resp = jsonify({
+    "user": {
+        "id": row["id"],
+        "email": email,
+        "username": row["username"],
+    }
+    })
     return _set_session_cookie(resp, token)
 
 
@@ -285,7 +343,14 @@ def logout():
 @auth_bp.route("/me", methods=["GET"])
 @require_auth
 def me():
-    return jsonify({"user": {"id": g.user["id"], "email": g.user["email"]}})
+    return jsonify({
+    "user": {
+        "id": g.user["id"],
+        "email": g.user["email"],
+        "username": g.user["username"],
+        "profile_picture": g.user["profile_picture"],
+    }
+})
 
 
 @auth_bp.route("/forgot", methods=["POST"])
@@ -406,27 +471,93 @@ def google_auth():
 
     conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT id, email_verified FROM users WHERE lower(email) = ?", (email,))
+    cur.execute(
+    "SELECT id, email_verified, username, profile_picture FROM users WHERE lower(email) = ?",
+    (email,),
+    )
     row = cur.fetchone()
 
     if row:
         user_id = row["id"]
+        username = row["username"]
+        profile_picture = row["profile_picture"]
+
         # Google already verified this email — trust it and mark verified
         if not row["email_verified"]:
             cur.execute("UPDATE users SET email_verified = 1 WHERE id = ?", (user_id,))
+
+        # Keep the latest Google profile picture for existing accounts.
+        if info.get("picture"):
+            profile_picture = info.get("picture")
+            cur.execute(
+                "UPDATE users SET profile_picture = ? WHERE id = ?",
+                (profile_picture, user_id),
+            )
     else:
         # New account. Password is unusable random — Google-only login.
         # (User can set a real password later via Forgot Password, which
         # works because the email is verified.)
+        profile_picture = info.get("picture")
         cur.execute(
-            "INSERT INTO users (email, password_hash, email_verified) VALUES (?, ?, 1) RETURNING id",
-            (email, generate_password_hash(secrets.token_urlsafe(32))),
+            "INSERT INTO users (email, password_hash, email_verified, profile_picture) VALUES (?, ?, 1, ?) RETURNING id",
+            (
+                email,
+                generate_password_hash(secrets.token_urlsafe(32)),
+                profile_picture,
+            ),
         )
         user_id = cur.lastrowid
+        username = None
 
     token = _create_session(cur, user_id)
     conn.commit()
     conn.close()
 
-    resp = jsonify({"user": {"id": user_id, "email": email}})
+    resp = jsonify({
+        "user": {
+            "id": user_id,
+            "email": email,
+            "username": username,
+            "profile_picture": profile_picture,
+        },
+        "needs_username": not bool(username),
+    })
     return _set_session_cookie(resp, token)
+
+@auth_bp.route("/username", methods=["POST"])
+@require_auth
+def set_username():
+    data = request.get_json(silent=True) or {}
+    username = (data.get("username") or "").strip()
+
+    if not re.fullmatch(r"[A-Za-z0-9_]{3,20}", username):
+        return jsonify({
+            "error": "Username must be 3–20 characters using only letters, numbers, or underscores."
+        }), 400
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute(
+        "SELECT id FROM users WHERE lower(username) = lower(?) AND id != ?",
+        (username, g.user["id"]),
+    )
+    if cur.fetchone():
+        conn.close()
+        return jsonify({"error": "That username is already taken."}), 409
+
+    cur.execute(
+        "UPDATE users SET username = ? WHERE id = ?",
+        (username, g.user["id"]),
+    )
+
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        "user": {
+            "id": g.user["id"],
+            "email": g.user["email"],
+            "username": username,
+        }
+    })

@@ -28,11 +28,11 @@ async function request(endpoint, options = {}) {
 
 /* ── Auth ── */
 
-export async function register(email, password) {
+export async function register(username, email, password) {
   const r = await request("/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ username, email, password }),
   });
   return r.json();
 }
@@ -134,6 +134,25 @@ export async function sendMessage(chatId, message, files = []) {
   return response;
 }
 
+export async function generateStudySet(
+  chatId,
+  kind,
+  topic = "",
+  documentId = null
+) {
+  const r = await request(`/chat/${chatId}/quiz`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      kind,
+      topic,
+      document_id: documentId,
+    }),
+  });
+
+  return r.json();
+}
+
 export async function deleteChat(id) {
   const r = await request(`/chat/${id}`, { method: "DELETE" });
   return r.json();
@@ -178,6 +197,15 @@ export async function googleSignIn(credential) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ credential }),
+  });
+  return r.json();
+}
+
+export async function setUsername(username) {
+  const r = await request("/auth/username", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username }),
   });
   return r.json();
 }

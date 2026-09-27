@@ -59,18 +59,29 @@ class LibsqlConn:
 def get_db():
     if USE_TURSO:
         return LibsqlConn()
-    conn = sqlite3.connect(DB_PATH)
+
+    conn = sqlite3.connect(
+        DB_PATH,
+        timeout=30,
+    )
     conn.row_factory = sqlite3.Row
+
+    # Local SQLite: allow concurrent reads and wait briefly
+    # instead of immediately failing when another request is writing.
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=30000")
+
     return conn
 
 
 SCHEMA = [
     """CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT NOT NULL UNIQUE,
-        password_hash TEXT NOT NULL,
-        email_verified INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL UNIQUE,
+    username TEXT UNIQUE,
+    password_hash TEXT NOT NULL,
+    email_verified INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )""",
     """CREATE TABLE IF NOT EXISTS sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -102,13 +113,6 @@ SCHEMA = [
         user_message TEXT,
         ai_reply TEXT,
         feedback TEXT,
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    )""",
-    """CREATE TABLE IF NOT EXISTS documents (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        chat_id INTEGER NOT NULL,
-        filename TEXT NOT NULL,
-        content TEXT NOT NULL,
         created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )""",
 ]

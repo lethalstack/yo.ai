@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import * as api from "../../services/api";
-import { PanelLeft } from "lucide-react";
+import { PanelLeft, ListChecks, Layers } from "lucide-react";
 import { Link } from "react-router-dom";
 import MessageBubble from "./MessageBubble";
 import ChatInput from "./ChatInput";
+import QuizModal from "./QuizModal";
 
 // use whatever host the page was loaded from (localhost, 127.0.0.1, or a
 // LAN IP like 192.168.x.x) instead of a hardcoded 127.0.0.1 — this is
@@ -12,25 +13,56 @@ import ChatInput from "./ChatInput";
 const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 const MODE_META = {
-  chill: { emoji: "😎", label: "Chill Mode" },
-  exam: { emoji: "📚", label: "Exam Mode" },
-  coding: { emoji: "💻", label: "Coding Mode" },
-  interview: { emoji: "💼", label: "Interview Mode" },
+  chill: {
+    emoji: "😎",
+    label: "Chill",
+    description: "Explore freely",
+  },
+  exam: {
+    emoji: "📚",
+    label: "Exam",
+    description: "Focus & revise",
+  },
+  coding: {
+    emoji: "💻",
+    label: "Coding",
+    description: "Build & debug",
+  },
+  interview: {
+    emoji: "💼",
+    label: "Interview",
+    description: "Practice & prepare",
+  },
 };
 
-export default function ChatWindow({ chatId, resetSignal, sessionMode, onChatCreated, refreshChats, onOpenSidebar, sidebarCollapsed, onExpandSidebar }) {
+export default function ChatWindow({
+  user,
+  chatId,
+  resetSignal,
+  sessionMode,
+  onChatCreated,
+  refreshChats,
+  onOpenSidebar,
+  sidebarCollapsed,
+  onExpandSidebar,
+}) {
+    const displayName =
+    user?.email
+      ?.split("@")[0]
+      ?.replace(/[._-]+/g, " ")
+      ?.replace(/\b\w/g, (char) => char.toUpperCase()) || "there";
 
   const [messages, setMessages] = useState([]);
   const [activeMode, setActiveMode] = useState(sessionMode || "chill");
+  const [modeSelected, setModeSelected] = useState(false);
   const [messageIds, setMessageIds] = useState({}); // track AI message DB IDs
   const [thinkingMessageIndex, setThinkingMessageIndex] = useState(null); // which message is thinking
   const bottomRef = useRef(null);
   const scrollContainerRef = useRef(null);
   const [showJumpButton, setShowJumpButton] = useState(false);
   const shouldAutoScrollRef = useRef(true);
-
-  // guards against re-fetching messages right after WE create a chat
-  // internally (we already have the correct local state in that case)
+  const [studySet, setStudySet] = useState(null);
+  const [documents, setDocuments] = useState([]);
   const skipNextFetchRef = useRef(false);
 
   // Load messages whenever the active chat changes (e.g. user clicks
@@ -42,9 +74,12 @@ export default function ChatWindow({ chatId, resetSignal, sessionMode, onChatCre
       return;
     }
 
-    if (!chatId) {
+   if (!chatId) {
       setMessages([]);
       setActiveMode(sessionMode || "chill");
+      setStudySet(null);
+      setDocuments([]);
+      setModeSelected(false);
       return;
     }
 
@@ -60,6 +95,8 @@ export default function ChatWindow({ chatId, resetSignal, sessionMode, onChatCre
 
         setMessages(data.messages || []);
         setActiveMode(data.mode || "chill");
+        setDocuments(data.documents || []);
+        setModeSelected(true);
       }
       catch (error) {
         console.log("Failed to load chat", error);
@@ -75,11 +112,10 @@ export default function ChatWindow({ chatId, resetSignal, sessionMode, onChatCre
   // itself separately (see ChatInput's own resetSignal effect).
   useEffect(() => {
   if (resetSignal === 0) return;
-
   shouldAutoScrollRef.current = true;
-
   setMessages([]);
   setActiveMode(sessionMode || "chill");
+  setStudySet(null);
 }, [resetSignal]);
 
 
@@ -306,7 +342,7 @@ setMessages(prev => [
 
   return (
 
-    <div className="flex-1 h-dvh flex flex-col bg-black text-white min-w-0 overflow-hidden relative">
+    <div className="flex-1 h-full flex flex-col bg-black text-white min-w-0 overflow-hidden relative">
 
       {/* mobile-only floating menu toggle — FIXED to prevent keyboard scroll */}
       <button
@@ -357,6 +393,39 @@ setMessages(prev => [
         </button>
       )}
 
+      {/* Study tools */}
+        {modeSelected && (
+          <div className="absolute top-3 left-1/2 z-30 w-[calc(100%-2rem)] -translate-x-1/2 sm:w-[calc(100%-5rem)]">
+          <div className="max-w-3xl mx-auto flex items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-neutral-950/90 px-4 py-1 backdrop-blur-xl">
+            <span className="text-sm text-gray-500">
+              {MODE_META[activeMode]?.label || "Chill Mode"}
+            </span>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setStudySet({ kind: "quiz" })}
+                disabled={!chatId}
+                className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs text-gray-300 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ListChecks size={15} />
+                Quiz
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStudySet({ kind: "flashcards" })}
+                disabled={!chatId}
+                className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs text-gray-300 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <Layers size={15} />
+                Cards
+              </button>
+            </div>
+          </div>
+        </div>
+        )}
+
       <div
         ref={scrollContainerRef}
         className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-10 pt-16 sm:pt-8 pb-24 sm:pb-20"
@@ -367,12 +436,51 @@ setMessages(prev => [
 
           <div className="h-full flex items-center justify-center">
             <div className="text-center px-4">
-              <h1 className="text-2xl sm:text-4xl font-semibold">
+              <h1 className="text-2xl sm:text-4xl font-semibold tracking-tight">
                 yo wassup. leave the rest to me.
               </h1>
+
               <p className="text-gray-500 mt-4">
                 ideas, code, exams, whatever - just say it.
               </p>
+
+              <div className="mt-10">
+                <p className="text-[11px] uppercase tracking-[0.16em] text-gray-600 mb-4">
+                  What are we doing?
+                </p>
+
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  {Object.entries(MODE_META).map(([mode, meta]) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => {
+                        setActiveMode(mode);
+                        setModeSelected(true);
+                      }}
+                      className="
+                        group flex items-center gap-2
+                        rounded-full border border-white/[0.08]
+                        bg-white/[0.025]
+                        px-4 py-2
+                        text-sm text-gray-400
+                        transition-all duration-200
+                        hover:-translate-y-0.5
+                        hover:border-white/[0.16]
+                        hover:bg-white/[0.06]
+                        hover:text-white
+                        active:scale-[0.97]
+                      "
+                    >
+                      <span className="text-sm transition-transform duration-200 group-hover:scale-110">
+                        {meta.emoji}
+                      </span>
+
+                      <span>{meta.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -411,12 +519,23 @@ setMessages(prev => [
 
       </div>
 
-      <ChatInput
-        resetSignal={resetSignal}
-        showJumpButton={showJumpButton}
-        onJumpToLatest={jumpToLatest}
-        onSend={sendMessage}
-      />
+      {modeSelected && (
+        <ChatInput
+          resetSignal={resetSignal}
+          showJumpButton={showJumpButton}
+          onJumpToLatest={jumpToLatest}
+          onSend={sendMessage}
+        />
+      )}
+
+      {studySet && chatId && (
+        <QuizModal
+          chatId={chatId}
+          kind={studySet.kind}
+          documents={documents}
+          onClose={() => setStudySet(null)}
+        />
+      )}
 
     </div>
 

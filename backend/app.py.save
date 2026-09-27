@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, Response, stream_with_context, g
+from flask import Flask, request, jsonify, Response, stream_with_context
 from flask_cors import CORS
 from werkzeug.exceptions import HTTPException
 from dotenv import load_dotenv
@@ -6,13 +6,13 @@ from groq import Groq
 from openai import OpenAI as OpenRouterClient
 from pypdf import PdfReader
 import base64
-import json
 import os
 import time
 
 from backend.db import get_db, init_db
 from backend.auth import auth_bp, require_auth
-load_dotenv("backend/.env")
+
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 app = Flask(__name__)
 
@@ -224,217 +224,6 @@ def save_message(chat_id, stored_user_message, accumulated, is_new_chat):
     except Exception as e:
         print("Failed to persist message:", repr(e))
 
-QUIZ_SYSTEM_PROMPT = """You create accurate study materials from the supplied material.
-Return only valid JSON matching the requested schema.
-Do not invent facts that are not supported by the supplied material.
-Keep questions clear, concise, and useful for studying."""
-
-
-def _parse_study_json(raw):
-    """Parse model JSON, tolerating accidental markdown fences."""
-    text = (raw or "").strip()
-
-    if text.startswith("```"):
-        lines = text.splitlines()
-        if lines and lines[0].startswith("```"):
-            lines = lines[1:]
-        if lines and lines[-1].strip() == "```":
-            lines = lines[:-1]
-        text = "\n".join(lines).strip()
-
-    return json.loads(text)
-
-
-def _validate_study_set(data, kind):
-    """Validate and normalize model-generated study material."""
-    if not isinstance(data, dict):
-        raise ValueError("Study set must be an object.")
-
-    title = str(data.get("title") or "Study Set").strip()[:120]
-
-    if kind == "flashcards":
-        raw_cards = data.get("cards")
-        if not isinstance(raw_cards, list):
-            raise ValueError("Invalid flashcard payload.")
-
-        cards = []
-        for card in raw_cards[:8]:
-            if not isinstance(card, dict):
-                continue
-
-            front = str(card.get("front") or "").strip()
-            back = str(card.get("back") or "").strip()
-
-            if front and back:
-                cards.append({
-                    "front": front[:500],
-                    "back": back[:1200],
-                })
-
-        if not cards:
-            raise ValueError("No valid flashcards generated.")
-
-        return {
-            "kind": "flashcards",
-            "title": title,
-            "cards": cards,
-        }
-
-    raw_questions = data.get("questions")
-    if not isinstance(raw_questions, list):
-        raise ValueError("Invalid quiz payload.")
-
-    questions = []
-
-    for question in raw_questions[:5]:
-        if not isinstance(question, dict):
-            continue
-
-        q = str(question.get("q") or "").strip()
-        options = question.get("options")
-        explanation = str(question.get("explanation") or "").strip()
-
-        if not q or not isinstance(options, list) or len(options) != 4:
-            continue
-
-        options = [str(option).strip() for option in options]
-
-        if not all(options):
-            continue
-
-        try:
-            answer = int(question.get("answer", 0))
-        except (TypeError, ValueError):
-            answer = 0
-
-        answer = max(0, min(3, answer))
-
-        questions.append({
-            "q": q[:700],
-            "options": [option[:300] for option in options],
-            "answer": answer,
-            "explanation": explanation[:800],
-        })
-
-    if not questions:
-        raise ValueError("No valid quiz questions generated.")
-
-    return {
-        "kind": "quiz",
-        "title": title,
-        "questions": questions,
-    }
-
-
-def generate_study_set(cursor, chat_id, kind, topic="", document_id=None):
-    """Generate a quiz or flashcard deck from chat history and documents."""
-    if document_id:
-        cursor.execute(
-            "SELECT filename, content FROM documents WHERE id = ? AND chat_id = ?",
-            (document_id, chat_id),
-        )
-    else:
-        cursor.execute(
-            "SELECT filename, content FROM documents WHERE chat_id = ? ORDER BY id ASC",
-            (chat_id,),
-        )
-    document_rows = cursor.fetchall()
-
-    source_parts = []
-
-    for row in document_rows:
-        source_parts.append(
-            f"--- Document: {row['filename']} ---\n{row['content']}"
-        )
-
-    if not source_parts:
-        cursor.execute(
-            "SELECT user_message, ai_reply FROM messages "
-            "WHERE chat_id = ? ORDER BY id ASC",
-            (chat_id,),
-        )
-        rows = cursor.fetchall()
-
-        if rows:
-            source_parts.append(
-                "\n\n".join(
-                    f"User: {row['user_message']}\n"
-                    f"yo: {(row['ai_reply'] or '')[:1500]}"
-                    for row in rows
-                )
-            )
-
-    source = "\n\n".join(source_parts)
-
-    if not source.strip():
-        return None
-
-    if kind == "flashcards":
-        spec = (
-            "Create 8 study flashcards from the material. "
-            "Respond with ONLY this JSON shape: "
-            '{"title": "short deck title", '
-            '"cards": [{"front": "term or question", '
-            '"back": "clear answer or explanation"}]}'
-        )
-    else:
-        spec = (
-            "Create 5 multiple-choice exam-style questions from the material. "
-            "Exactly 4 options per question. Vary which option index is correct. "
-            "Respond with ONLY this JSON shape: "
-            '{"title": "short quiz title", '
-            '"questions": [{"q": "question text", '
-            '"options": ["opt1", "opt2", "opt3", "opt4"], '
-            '"answer": 0, '
-            '"explanation": "one or two sentences: why this answer is right"}]} '
-            'where "answer" is the 0-based index of the correct option.'
-        )
-
-    if topic:
-        spec += f'\nFocus on this topic if present: "{topic}".'
-
-    user_content = (
-        f"Study material:\n{source[:12000]}\n\n{spec}"
-    )
-
-    last_err = None
-
-    for attempt in range(2):
-        try:
-            try:
-                resp = client.chat.completions.create(
-                    model=TEXT_MODEL,
-                    messages=[
-                        {"role": "system", "content": QUIZ_SYSTEM_PROMPT},
-                        {"role": "user", "content": user_content},
-                    ],
-                    response_format={"type": "json_object"},
-                    temperature=0.7,
-                )
-            except Exception:
-                resp = client.chat.completions.create(
-                    model=TEXT_MODEL,
-                    messages=[
-                        {"role": "system", "content": QUIZ_SYSTEM_PROMPT},
-                        {"role": "user", "content": user_content},
-                    ],
-                    temperature=0.7,
-                )
-
-            data = _parse_study_json(
-                resp.choices[0].message.content
-            )
-
-            return _validate_study_set(data, kind)
-
-        except Exception as e:
-            last_err = e
-            print(
-                f"Study set generation attempt {attempt + 1} failed:",
-                repr(e),
-            )
-
-    raise last_err
 
 # ── Routes ──
 @app.route("/api/new-chat", methods=["POST"])
@@ -448,11 +237,10 @@ def new_chat():
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute(
-    "INSERT INTO chats (user_id, title, mode) VALUES (?, ?, ?) RETURNING id",
-    (g.user["id"], "New Chat", mode),
-)
-    row = cursor.fetchone()
-    chat_id = row["id"]
+        "INSERT INTO chats (user_id, title, mode) VALUES (?, ?, ?) RETURNING id",
+        (g.user["id"], "New Chat", mode),
+    )
+    chat_id = cursor.lastrowid
     conn.commit()
     conn.close()
 
@@ -534,10 +322,7 @@ def get_chat_messages(chat_id):
     try:
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT title, mode FROM chats WHERE id = ? AND user_id = ?",
-            (chat_id, g.user["id"])
-        )
+        cursor.execute("SELECT title, mode FROM chats WHERE id = ? AND user_id = ?", (chat_id, g.user["id"]))
         chat_row = cursor.fetchone()
 
         if chat_row is None:
@@ -545,42 +330,21 @@ def get_chat_messages(chat_id):
             return jsonify({"error": "chat not found"}), 404
 
         cursor.execute(
-            "SELECT id, user_message, ai_reply, feedback FROM messages WHERE chat_id = ? ORDER BY id ASC",
+            "SELECT id, user_message, ai_reply FROM messages WHERE chat_id = ? ORDER BY id ASC",
             (chat_id,)
         )
         rows = cursor.fetchall()
-
-        cursor.execute(
-            "SELECT id, filename FROM documents WHERE chat_id = ? ORDER BY id ASC",
-            (chat_id,)
-        )
-        document_rows = cursor.fetchall()
-
         conn.close()
 
         messages = [
-            {
-                "id": row["id"],
-                "user": row["user_message"],
-                "ai": row["ai_reply"],
-                "feedback": row["feedback"]
-            }
+            {"id": row["id"], "user": row["user_message"], "ai": row["ai_reply"]}
             for row in rows
-        ]
-
-        documents = [
-            {
-                "id": row["id"],
-                "filename": row["filename"]
-            }
-            for row in document_rows
         ]
 
         return jsonify({
             "title": chat_row["title"],
             "mode": chat_row["mode"],
-            "messages": messages,
-            "documents": documents
+            "messages": messages
         })
 
     except Exception as e:
@@ -594,14 +358,10 @@ def delete_chat(chat_id):
     try:
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT id FROM chats WHERE id = ? AND user_id = ?",
-            (chat_id, g.user["id"])
-        )
+        cursor.execute("SELECT id FROM chats WHERE id = ? AND user_id = ?", (chat_id, g.user["id"]))
         if cursor.fetchone() is None:
             conn.close()
             return jsonify({"error": "chat not found"}), 404
-
         cursor.execute("DELETE FROM documents WHERE chat_id = ?", (chat_id,))
         cursor.execute("DELETE FROM messages WHERE chat_id = ?", (chat_id,))
         cursor.execute("DELETE FROM chats WHERE id = ?", (chat_id,))
@@ -623,24 +383,18 @@ def truncate_messages(chat_id):
     try:
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT id FROM chats WHERE id = ? AND user_id = ?",
-            (chat_id, g.user["id"])
-        )
+        cursor.execute("SELECT id FROM chats WHERE id = ? AND user_id = ?", (chat_id, g.user["id"]))
         if cursor.fetchone() is None:
             conn.close()
             return jsonify({"error": "chat not found"}), 404
 
         from_id = request.args.get("from_id", type=int)
         if from_id:
-            cursor.execute(
-                "DELETE FROM messages WHERE chat_id = ? AND id >= ?",
-                (chat_id, from_id)
-            )
+            cursor.execute("DELETE FROM messages WHERE chat_id = ? AND id >= ?", (chat_id, from_id))
         else:
             cursor.execute(
                 "DELETE FROM messages WHERE id = (SELECT id FROM messages WHERE chat_id = ? ORDER BY id DESC LIMIT 1)",
-                (chat_id,)
+                (chat_id,),
             )
         conn.commit()
         conn.close()
@@ -672,10 +426,7 @@ def message_feedback(message_id):
             conn.close()
             return jsonify({"error": "message not found"}), 404
 
-        cursor.execute(
-            "UPDATE messages SET feedback = ? WHERE id = ?",
-            (fb, message_id)
-        )
+        cursor.execute("UPDATE messages SET feedback = ? WHERE id = ?", (fb, message_id))
         conn.commit()
         conn.close()
         return jsonify({"ok": True})
@@ -684,68 +435,6 @@ def message_feedback(message_id):
         print("message_feedback failed:", repr(e))
         return jsonify({"error": str(e)}), 500
 
-
-@app.route("/api/chat/<int:chat_id>/quiz", methods=["POST"])
-@require_auth
-def create_quiz(chat_id):
-    try:
-        data = request.get_json(silent=True) or {}
-
-        kind = (
-            data.get("kind")
-            if data.get("kind") in ("quiz", "flashcards")
-            else "quiz"
-        )
-
-        topic = (data.get("topic") or "").strip()[:120]
-        document_id = data.get("document_id")
-
-        conn = get_db()
-        cursor = conn.cursor()
-
-        cursor.execute(
-            "SELECT id FROM chats WHERE id = ? AND user_id = ?",
-            (chat_id, g.user["id"]),
-        )
-
-        if cursor.fetchone() is None:
-            conn.close()
-            return jsonify({"error": "chat not found"}), 404
-
-        try:
-            study_set = generate_study_set(
-            cursor,
-            chat_id,
-            kind,
-            topic,
-            document_id,
-        )
-        except Exception as e:
-            print("Study set failed:", repr(e))
-            conn.close()
-            return jsonify({
-                "error": (
-                    "Couldn't build a study set from this chat — "
-                    "add notes or a longer conversation and try again."
-                )
-            }), 502
-
-        if study_set is None:
-            conn.close()
-            return jsonify({
-                "error": (
-                    "Nothing to quiz on yet — send some messages "
-                    "or upload notes first."
-                )
-            }), 400
-
-        conn.close()
-
-        return jsonify(study_set)
-
-    except Exception as e:
-        print("create_quiz failed:", repr(e))
-        return jsonify({"error": "Quiz generation failed. Try again."}), 500
 
 @app.route("/api/chat", methods=["POST"])
 @require_auth
