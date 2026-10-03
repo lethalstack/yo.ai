@@ -6,6 +6,7 @@
 @import '@fontsource/geist-sans/700.css';
 @import '@fontsource/geist-mono/400.css';
 @import '@fontsource/geist-mono/500.css';
+@import '@fontsource/dm-serif-display';
 
 @tailwind base;
 @tailwind components;
@@ -95,6 +96,7 @@ h1, h2, h3, h4 {
   background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   mask-composite: exclude;
   opacity: 0;
   transition: opacity 0.5s ease;
@@ -226,6 +228,103 @@ pre code {
 }
 .msg-enter {
   animation: msgEnter 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Active chat — soft spatial boundary: content dissolves as it enters the
+   navbar (0–64px) and composer (bottom 80px) strips, fully sharp between
+   them. No band, no visible line — the bars' own frost blurs what's left
+   of the fading text. Starting page never gets this class. */
+/* Active chat — content blurs as it passes the floating bars' strips and
+   returns to sharp on the other side. Pure backdrop blur: no tint, no
+   fade, nothing hidden. Only applied when a conversation is open. */
+.yo-blur-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(1px);
+  backdrop-filter: blur(1px);
+}
+/* bands share the bars' silhouette (same gutters, same max-width, same
+   24px curve) extended past the bar's outer edge — so the blur follows
+   the pill's curvature and stops exactly at it, no square corners */
+/* Bands = the pill's silhouette, stretched 14px wider on each side (covers
+   the corner pockets between the curves) with a vertical fade that reaches
+   zero before mid-pill — so no blur can ever protrude into the corridor. */
+.yo-blur-band--top {
+  top: 0;
+  height: 60px;
+  max-width: calc(48rem + 28px);
+  margin-inline: auto;
+  border-radius: 24px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 12px, transparent 36px);
+  mask-image: linear-gradient(to bottom, #000 0, #000 12px, transparent 36px);
+}
+/* ghost watermark — huge, top-pinned, dissolving downward. The vertical
+   mask is what makes it read premium: no bottom edge, it melts into the
+   page behind the hero text, exactly like the reference. */
+.yo-ghost-wrap {
+  top: 26vh;
+  /* snap to whole pixels — fractional vh tops rasterize the SVG soft */
+  top: round(up, 26vh, 1px);
+}
+@media (min-width: 640px) {
+  .yo-ghost-wrap { top: -112px; } /* = -top-28 */
+}
+
+.yo-ghost {
+  color: rgba(255, 255, 255, 0.10);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 26%, transparent 72%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 26%, transparent 72%);
+}
+.light .yo-shell .yo-ghost {
+  color: rgba(0, 0, 0, 0.055);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 26%, transparent 72%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 26%, transparent 72%);
+}
+
+.yo-blur-band--bottom {
+  bottom: 0;
+  height: 68px;
+  max-width: calc(48rem + 28px);
+  margin-inline: auto;
+  border-radius: 24px;
+  -webkit-mask-image: linear-gradient(to top, #000 0, #000 12px, transparent 36px);
+  mask-image: linear-gradient(to top, #000 0, #000 12px, transparent 36px);
+}
+
+/* Light frost strips behind navbar/composer — content behind stays
+   visible, just softly blurred. Much lighter than a chrome bar. */
+.yo-frost-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  pointer-events: none;
+  background-color: rgba(23, 23, 23, 0.30);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.yo-frost-band--top {
+  top: 0;
+  height: 64px;
+}
+.yo-frost-band--bottom {
+  bottom: 0;
+  height: 76px;
+}
+.light .yo-shell .yo-frost-band {
+  background-color: rgba(255, 255, 255, 0.35);
+}
+
+/* Active chat: messages fade out before reaching the floating navbar
+   (top) and composer (bottom), so content never renders visibly outside
+   the band between them. Only applied when a conversation is open — the
+   starting page's mode pills sit inside the bottom fade zone. */
+.yo-chat-fade {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, transparent 60px, #000 76px, #000 calc(100% - 100px), transparent calc(100% - 76px), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, transparent 60px, #000 76px, #000 calc(100% - 100px), transparent calc(100% - 76px), transparent 100%);
 }
 
 /* Streaming cursor — gentle breathe */
@@ -372,4 +471,661 @@ pre code {
 .prose-chat > div > div {
   max-width: 100% !important;
   width: 100% !important;
+}
+
+/* ══════════ Light theme — scoped to the authenticated app shell ══════════
+   Every override lives under .light .yo-shell, so the landing page, auth
+   page and other brand surfaces are NEVER affected. Dark remains the
+   default. Code blocks stay dark intentionally. */
+
+.light .yo-shell { color-scheme: light; }
+
+/* ── canvas + surfaces ── */
+.light .yo-shell .bg-black { background-color: #f4f4f2; }
+.light .yo-shell .bg-neutral-950 { background-color: #ffffff; }
+.light .yo-shell .bg-neutral-900 { background-color: #ffffff; }
+.light .yo-shell .bg-neutral-900\/95 { background-color: rgba(255, 255, 255, 0.94); }
+.light .yo-shell .bg-neutral-900\/70 { background-color: rgba(255, 255, 255, 0.72); }
+.light .yo-shell .bg-neutral-800 { background-color: #ffffff; }
+.light .yo-shell .bg-neutral-800\/95 { background-color: rgba(255, 255, 255, 0.95); }
+.light .yo-shell .hover\:bg-neutral-700\/90:hover { background-color: #e4e4e7; }
+
+/* ── scrims / veils (modal + mobile backdrop) ── */
+.light .yo-shell .bg-black\/60 { background-color: rgba(24, 24, 27, 0.26); }
+.light .yo-shell .bg-black\/70 { background-color: rgba(24, 24, 27, 0.28); }
+.light .yo-shell .bg-black\/80 { background-color: rgba(24, 24, 27, 0.30); }
+.light .yo-shell .bg-black\/85 { background-color: rgba(24, 24, 27, 0.32); }
+.light .yo-shell .bg-black\/20 { background-color: rgba(0, 0, 0, 0.05); }
+
+/* ── white-opacity surfaces → black-opacity ── */
+.light .yo-shell .bg-white\/\[0\.02\] { background-color: rgba(0, 0, 0, 0.02); }
+.light .yo-shell .bg-white\/\[0\.03\] { background-color: rgba(0, 0, 0, 0.03); }
+.light .yo-shell .bg-white\/\[0\.04\] { background-color: rgba(0, 0, 0, 0.04); }
+.light .yo-shell .bg-white\/\[0\.05\] { background-color: rgba(0, 0, 0, 0.04); }
+.light .yo-shell .bg-white\/\[0\.06\] { background-color: rgba(0, 0, 0, 0.05); }
+.light .yo-shell .bg-white\/\[0\.08\] { background-color: rgba(0, 0, 0, 0.06); }
+.light .yo-shell .bg-white\/10 { background-color: rgba(0, 0, 0, 0.07); }
+.light .yo-shell .bg-white\/15 { background-color: rgba(0, 0, 0, 0.09); }
+.light .yo-shell .bg-white\/25 { background-color: rgba(0, 0, 0, 0.14); }
+.light .yo-shell .bg-white\/70 { background-color: rgba(0, 0, 0, 0.55); }
+
+/* ── primary controls invert (dark pill on light canvas) ── */
+.light .yo-shell .bg-white { background-color: #1a1a1a; }
+.light .yo-shell .text-black { color: #fafafa; }
+.light .yo-shell .disabled\:bg-white\/10:disabled { background-color: rgba(0, 0, 0, 0.08); }
+
+/* ── destructive confirm buttons stay red with white text ── */
+.light .yo-shell .bg-red-500\/90 { background-color: #dc2626; }
+.light .yo-shell .bg-red-500\/90.text-white { color: #ffffff; }
+
+/* ── hover / active surfaces ── */
+.light .yo-shell .hover\:bg-white\/10:hover { background-color: rgba(0, 0, 0, 0.06); }
+.light .yo-shell .hover\:bg-white\/15:hover { background-color: rgba(0, 0, 0, 0.08); }
+.light .yo-shell .hover\:bg-white\/25:hover { background-color: rgba(0, 0, 0, 0.16); }
+.light .yo-shell .hover\:bg-white\/\[0\.04\]:hover { background-color: rgba(0, 0, 0, 0.03); }
+.light .yo-shell .hover\:bg-white\/\[0\.05\]:hover { background-color: rgba(0, 0, 0, 0.04); }
+.light .yo-shell .hover\:bg-white\/\[0\.06\]:hover { background-color: rgba(0, 0, 0, 0.05); }
+.light .yo-shell .active\:bg-white\/\[0\.08\]:active { background-color: rgba(0, 0, 0, 0.07); }
+.light .yo-shell .active\:bg-white\/15:active { background-color: rgba(0, 0, 0, 0.09); }
+
+/* ── borders ── */
+.light .yo-shell .border-white\/10 { border-color: rgba(0, 0, 0, 0.09); }
+.light .yo-shell .border-white\/\[0\.06\] { border-color: rgba(0, 0, 0, 0.06); }
+.light .yo-shell .border-white\/\[0\.07\] { border-color: rgba(0, 0, 0, 0.07); }
+.light .yo-shell .border-white\/\[0\.08\] { border-color: rgba(0, 0, 0, 0.08); }
+.light .yo-shell .border-white\/\[0\.10\] { border-color: rgba(0, 0, 0, 0.09); }
+.light .yo-shell .border-white\/\[0\.12\] { border-color: rgba(0, 0, 0, 0.10); }
+.light .yo-shell .border-white\/20 { border-color: rgba(0, 0, 0, 0.16); }
+.light .yo-shell .border-black\/\[0\.08\] { border-color: rgba(255, 255, 255, 0.12); }
+.light .yo-shell .focus\:border-white\/25:focus { border-color: rgba(0, 0, 0, 0.20); }
+.light .yo-shell .focus\:border-white\/30:focus { border-color: rgba(0, 0, 0, 0.24); }
+.light .yo-shell .focus\:border-white\/40:focus { border-color: rgba(0, 0, 0, 0.32); }
+.light .yo-shell .focus-within\:border-white\/25:focus-within { border-color: rgba(0, 0, 0, 0.20); }
+.light .yo-shell .bg-white\/\[0\.12\] { background-color: rgba(0, 0, 0, 0.10); }
+.light .yo-shell .focus-within\:bg-white\/25:focus-within { background-color: rgba(0, 0, 0, 0.20); }
+.light .yo-shell .hover\:border-white\/20:hover { border-color: rgba(0, 0, 0, 0.16); }
+.light .yo-shell .hover\:border-white\/25:hover { border-color: rgba(0, 0, 0, 0.20); }
+.light .yo-shell .hover\:border-white\/30:hover { border-color: rgba(0, 0, 0, 0.24); }
+.light .yo-shell .hover\:border-white\/40:hover { border-color: rgba(0, 0, 0, 0.32); }
+
+/* ── text ── */
+.light .yo-shell .text-white { color: #1a1a1a; }
+.light .yo-shell .text-white\/90 { color: rgba(0, 0, 0, 0.88); }
+.light .yo-shell .text-white\/80 { color: rgba(0, 0, 0, 0.78); }
+.light .yo-shell .text-white\/70 { color: rgba(0, 0, 0, 0.65); }
+.light .yo-shell .text-white\/60 { color: rgba(0, 0, 0, 0.55); }
+.light .yo-shell .text-white\/45 { color: rgba(0, 0, 0, 0.45); }
+.light .yo-shell .text-white\/40 { color: rgba(0, 0, 0, 0.42); }
+.light .yo-shell .text-white\/30 { color: rgba(0, 0, 0, 0.35); }
+.light .yo-shell .text-gray-100 { color: #27272a; }
+.light .yo-shell .text-gray-200 { color: #3f3f46; }
+.light .yo-shell .text-gray-300 { color: #52525b; }
+.light .yo-shell .text-gray-400 { color: #6f6f78; }
+.light .yo-shell .text-gray-500 { color: #7e7e87; }
+.light .yo-shell .text-gray-600 { color: #9d9da5; }
+
+/* grays INSIDE inverted cards (user bubble / edit card / flip-card back
+   are dark in light mode) need light-gray text, not dark gray */
+.light .yo-shell .bg-white .text-gray-500 { color: #a1a1aa; }
+.light .yo-shell .bg-white .hover\:text-gray-700:hover { color: #e4e4e7; }
+.light .yo-shell .bg-white .hover\:bg-black\/\[0\.04\]:hover { background-color: rgba(255, 255, 255, 0.08); }
+
+/* ── text hovers ── */
+.light .yo-shell .hover\:text-white:hover { color: #18181b; }
+.light .yo-shell .hover\:text-gray-200:hover { color: #3f3f46; }
+.light .yo-shell .hover\:text-gray-300:hover { color: #52525b; }
+.light .yo-shell .hover\:text-gray-400:hover { color: #52525b; }
+.light .yo-shell .hover\:text-gray-600:hover { color: #52525b; }
+.light .yo-shell .hover\:text-gray-700:hover { color: #3f3f46; }
+
+/* sidebar row titles on group hover — group-hover: generates its own
+   class name, which the hover: mappings above never covered */
+.light .yo-shell .group:hover .group-hover\:text-gray-200 { color: #3f3f46; }
+
+/* ── placeholders ── */
+.light .yo-shell .placeholder\:text-gray-500::placeholder { color: #a1a1aa; }
+.light .yo-shell .placeholder\:text-gray-600::placeholder { color: #a1a1aa; }
+
+/* ── status colors, contrast-corrected ── */
+.light .yo-shell .text-green-400 { color: #15803d; }
+.light .yo-shell .text-green-500 { color: #15803d; }
+.light .yo-shell .bg-green-500\/10 { background-color: rgba(22, 163, 74, 0.10); }
+.light .yo-shell .border-green-500\/50 { border-color: rgba(22, 163, 74, 0.45); }
+.light .yo-shell .text-red-400 { color: #dc2626; }
+.light .yo-shell .text-red-400\/80 { color: rgba(220, 38, 38, 0.85); }
+.light .yo-shell .text-red-400\/60 { color: rgba(220, 38, 38, 0.62); }
+.light .yo-shell .hover\:text-red-300:hover { color: #b91c1c; }
+.light .yo-shell .bg-red-500\/10 { background-color: rgba(220, 38, 38, 0.10); }
+.light .yo-shell .bg-red-500\/\[0\.05\] { background-color: rgba(220, 38, 38, 0.05); }
+.light .yo-shell .bg-red-500\/\[0\.06\] { background-color: rgba(220, 38, 38, 0.06); }
+.light .yo-shell .hover\:bg-red-500\/15:hover { background-color: rgba(220, 38, 38, 0.10); }
+.light .yo-shell .hover\:bg-red-500\/\[0\.06\]:hover { background-color: rgba(220, 38, 38, 0.07); }
+.light .yo-shell .active\:bg-red-500\/25:active { background-color: rgba(220, 38, 38, 0.14); }
+.light .yo-shell .border-red-500\/20 { border-color: rgba(220, 38, 38, 0.25); }
+.light .yo-shell .border-red-500\/25 { border-color: rgba(220, 38, 38, 0.28); }
+.light .yo-shell .border-red-500\/40 { border-color: rgba(220, 38, 38, 0.45); }
+.light .yo-shell .border-red-500\/50 { border-color: rgba(220, 38, 38, 0.45); }
+
+/* ── heavy dark shadows → softened ── */
+.light .yo-shell .shadow-\[0_20px_60px_-12px_rgba\(0\,0\,0\,0\.8\)\] { box-shadow: 0 20px 60px -12px rgba(0, 0, 0, 0.16); }
+.light .yo-shell .focus-within\:shadow-\[0_20px_70px_-10px_rgba\(0\,0\,0\,0\.9\)\]:focus-within { box-shadow: 0 20px 70px -10px rgba(0, 0, 0, 0.20); }
+.light .yo-shell .shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.16); }
+
+/* ── markdown ──
+   Outer <pre> wrapper (rendered by react-markdown around the CodeBlock)
+   gets typography-plugin's pre background via --tw-prose-pre-bg
+   (default #1f2937) — the gray frame — so that variable is mapped too. */
+.light .yo-shell .prose-invert {
+  --tw-prose-body: #3f3f46;
+  --tw-prose-headings: #18181b;
+  --tw-prose-bold: #18181b;
+  --tw-prose-links: #18181b;
+  --tw-prose-quotes: #18181b;
+  --tw-prose-quote-borders: #e4e4e7;
+  --tw-prose-bullets: #a1a1aa;
+  --tw-prose-counters: #a1a1aa;
+  --tw-prose-hr: #e4e4e7;
+  --tw-prose-code: #18181b;
+  --tw-prose-captions: #71717a;
+  --tw-prose-th-borders: #e4e4e7;
+  --tw-prose-td-borders: #e4e4e7;
+  --tw-prose-pre-bg: transparent;
+  --tw-prose-pre-code: #24292f;
+}
+.light .yo-shell .prose-code\:text-white { color: #18181b; }
+.light .yo-shell .prose-strong\:text-white { color: #18181b; }
+.light .yo-shell .prose-a\:text-white { color: #18181b; }
+
+/* ── custom classes ── */
+/* custom classes */
+.light .yo-shell .chat-ai-label { color: #7e7e87; }
+
+/* editorial hero serif — starting-page statement only, never global */
+.yo-serif {
+  font-family: 'DM Serif Display', Georgia, serif;
+  font-weight: 400;
+}
+
+/* selected mode pill — neutral-800 and neutral-900 both map to white in
+   light mode, so the surface lift gets its own tone. Three-class
+   specificity safely beats the Tailwind utility. */
+.light .yo-shell .yo-mode-active { background-color: #e0e0de; }
+
+/* ═══ Light theme — final pass: audited against actual component source ═══ */
+
+/* study bar + "…" pill surface (ChatWindow "Study tools") */
+.light .yo-shell .bg-neutral-950\/90 { background-color: rgba(255, 255, 255, 0.92); }
+
+/* subtle hovers/fills that were unmapped */
+.light .yo-shell .hover\:bg-white\/5:hover { background-color: rgba(0, 0, 0, 0.04); }
+.light .yo-shell .bg-white\/\[0\.025\] { background-color: rgba(0, 0, 0, 0.025); }
+.light .yo-shell .hover\:border-white\/\[0\.16\]:hover { border-color: rgba(0, 0, 0, 0.14); }
+.light .yo-shell .bg-white\/50 { background-color: rgba(0, 0, 0, 0.45); }
+.light .yo-shell .border-t-white\/70 { border-top-color: rgba(0, 0, 0, 0.60); }
+
+/* QuizModal card — arbitrary hex class, escaped (confirmed in QuizModal.jsx) */
+.light .yo-shell .bg-\[\#151515\] { background-color: #ffffff; }
+
+/* modal selected / option states */
+.light .yo-shell .border-white\/25 { border-color: rgba(0, 0, 0, 0.20); }
+.light .yo-shell .border-white\/40 { border-color: rgba(0, 0, 0, 0.35); }
+.light .yo-shell .border-white\/5 { border-color: rgba(0, 0, 0, 0.05); }
+.light .yo-shell .bg-green-400\/10 { background-color: rgba(22, 163, 74, 0.10); }
+.light .yo-shell .border-green-400\/30 { border-color: rgba(22, 163, 74, 0.35); }
+.light .yo-shell .bg-red-400\/10 { background-color: rgba(220, 38, 38, 0.08); }
+.light .yo-shell .border-red-400\/30 { border-color: rgba(220, 38, 38, 0.30); }
+
+/* primary button hover (bg-white inverts to dark; hover must stay dark) */
+.light .yo-shell .hover\:bg-gray-200:hover { background-color: #3f3f46; }
+
+/* topic input placeholder (QuizModal) */
+.light .yo-shell .placeholder\:text-gray-700::placeholder { color: #a1a1aa; }
+
+/* attachment icon inside inverted user cards */
+.light .yo-shell .bg-white .text-gray-700 { color: #d4d4d8; }
+.light .yo-shell .bg-white .disabled\:bg-gray-200:disabled { background-color: rgba(0, 0, 0, 0.10); }
+
+/* ── prose modifiers generate DIRECT descendant rules — override at target ── */
+.light .yo-shell .prose-strong\:text-white :where(strong):not(:where([class~="not-prose"] *)) { color: #18181b; }
+.light .yo-shell .prose-code\:text-white :where(code):not(:where([class~="not-prose"] *)) { color: #18181b; }
+.light .yo-shell .prose-a\:text-white :where(a):not(:where([class~="not-prose"] *)) { color: #18181b; }
+
+/* ── .prose-chat hardcoded whites (custom block above) ── */
+.light .yo-shell .prose-chat li > strong:first-child { color: #18181b; }
+.light .yo-shell .prose-chat ol > li::before { color: rgba(0, 0, 0, 0.35); }
+.light .yo-shell .prose-chat code:not(pre code) {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+/* streaming cursor on light canvas */
+.light .yo-shell .cursor-stream {
+  background: rgba(0, 0, 0, 0.8);
+  box-shadow: none;
+}
+
+/* scrollbar + selection inside the shell */
+.light .yo-shell ::-webkit-scrollbar-track { background: #f4f4f2; }
+.light .yo-shell ::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); }
+.light .yo-shell ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.25); }
+.light .yo-shell ::selection { background: #1a1a1a; color: #ffffff; }
+
+/* ═══ Light theme — final polish: outer frame + code blocks ═══ */
+
+/* StudyApp root carries yo-shell and bg-black on the SAME element —
+   the descendant selector (.yo-shell .bg-black) can never match it.
+   Compound selector targets the root itself. */
+.light .yo-shell.bg-black { background-color: #f4f4f2; }
+.light .yo-shell.text-white { color: #1a1a1a; }
+
+/* Code blocks — light in Light mode.
+   Wrapper: CodeBlock's bg-[#111] (confirmed in MessageBubble.jsx). */
+.light .yo-shell .bg-\[\#111\] {
+  background-color: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* Code copy button hover inside the wrapper (unmapped text-white/60) */
+.light .yo-shell .hover\:text-white\/60:hover { color: rgba(0, 0, 0, 0.55); }
+
+/* Syntax tokens — github-dark.css is class-based; scoped overrides win
+   on specificity (3 classes vs 1). Curated github-light palette. */
+.light .yo-shell .hljs { color: #24292f; background: transparent; }
+.light .yo-shell .hljs-comment,
+.light .yo-shell .hljs-quote { color: #6e7781; font-style: italic; }
+.light .yo-shell .hljs-keyword,
+.light .yo-shell .hljs-doctag,
+.light .yo-shell .hljs-selector-tag { color: #cf222e; }
+.light .yo-shell .hljs-string,
+.light .yo-shell .hljs-regexp,
+.light .yo-shell .hljs-addition { color: #0a3069; }
+.light .yo-shell .hljs-number,
+.light .yo-shell .hljs-literal { color: #0550ae; }
+.light .yo-shell .hljs-title,
+.light .yo-shell .hljs-title.class_,
+.light .yo-shell .hljs-title.function_,
+.light .yo-shell .hljs-section,
+.light .yo-shell .hljs-name { color: #8250df; }
+.light .yo-shell .hljs-attr,
+.light .yo-shell .hljs-attribute,
+.light .yo-shell .hljs-variable,
+.light .yo-shell .hljs-template-variable,
+.light .yo-shell .hljs-type { color: #953800; }
+.light .yo-shell .hljs-built_in { color: #0550ae; }
+.light .yo-shell .hljs-symbol,
+.light .yo-shell .hljs-bullet,
+.light .yo-shell .hljs-meta { color: #57606a; }
+.light .yo-shell .hljs-selector-id,
+.light .yo-shell .hljs-selector-class,
+.light .yo-shell .hljs-selector-attr,
+.light .yo-shell .hljs-selector-pseudo { color: #116329; }
+.light .yo-shell .hljs-tag { color: #116329; }
+.light .yo-shell .hljs-emphasis { font-style: italic; }
+.light .yo-shell .hljs-strong { font-weight: 600; }
+.light .yo-shell .hljs-deletion { color: #82071e; }
+
+/* ══════════ Light theme — landing delta (source-audited) ══════════ */
+
+/* Root carries yo-landing + bg-black + text-white on the SAME element —
+   descendant selectors can't match it. Compound selectors required. */
+.light .yo-landing.bg-black { background-color: #f4f4f2; }
+.light .yo-landing.text-white { color: #1a1a1a; }
+
+/* surfaces */
+.light .yo-landing .bg-white\/\[0\.012\] { background-color: rgba(0, 0, 0, 0.015); }
+.light .yo-landing .bg-white\/90 { background-color: #1a1a1a; }
+.light .yo-landing .bg-white\/55 { background-color: rgba(0, 0, 0, 0.55); }
+.light .yo-landing .bg-black\/40 { background-color: rgba(0, 0, 0, 0.08); }
+
+/* ChatPreview window — arbitrary hex, confirmed in source */
+.light .yo-landing .bg-\[\#060606\]\/90 { background-color: rgba(255, 255, 255, 0.92); }
+.light .yo-landing .shadow-\[0_40px_100px_-20px_rgba\(0\,0\,0\,0\.9\)\] { box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.14); }
+
+/* borders */
+.light .yo-landing .border-white\/15 { border-color: rgba(0, 0, 0, 0.14); }
+.light .yo-landing .border-white\/\[0\.03\] { border-color: rgba(0, 0, 0, 0.04); }
+.light .yo-landing .border-white\/\[0\.05\] { border-color: rgba(0, 0, 0, 0.05); }
+.light .yo-landing .border-white\/\[0\.07\] { border-color: rgba(0, 0, 0, 0.07); }
+.light .yo-landing .border-white\/\[0\.12\] { border-color: rgba(0, 0, 0, 0.11); }
+.light .yo-landing .hover\:border-white\/16:hover { border-color: rgba(0, 0, 0, 0.15); }
+
+/* text */
+.light .yo-landing .text-white\/85 { color: rgba(0, 0, 0, 0.82); }
+.light .yo-landing .text-white\/65 { color: rgba(0, 0, 0, 0.58); }
+.light .yo-landing .text-white\/35 { color: rgba(0, 0, 0, 0.38); }
+.light .yo-landing .text-white\/28 { color: rgba(0, 0, 0, 0.35); }
+.light .yo-landing .text-white\/25 { color: rgba(0, 0, 0, 0.32); }
+.light .yo-landing .text-white\/22 { color: rgba(0, 0, 0, 0.30); }
+.light .yo-landing .text-white\/20 { color: rgba(0, 0, 0, 0.28); }
+.light .yo-landing .text-white\/18 { color: rgba(0, 0, 0, 0.28); }
+.light .yo-landing .text-white\/15 { color: rgba(0, 0, 0, 0.25); }
+.light .yo-landing .hover\:text-white\/55:hover { color: rgba(0, 0, 0, 0.50); }
+.light .yo-landing .hover\:text-white\/65:hover { color: rgba(0, 0, 0, 0.58); }
+.light .yo-landing .group:hover .group-hover\:text-white\/55 { color: rgba(0, 0, 0, 0.50); }
+.light .yo-landing .group:hover .group-hover\:text-white\/65 { color: rgba(0, 0, 0, 0.58); }
+
+/* hover surfaces */
+.light .yo-landing .hover\:bg-white\/\[0\.012\]:hover { background-color: rgba(0, 0, 0, 0.02); }
+.light .yo-landing .hover\:bg-white\/\[0\.03\]:hover { background-color: rgba(0, 0, 0, 0.04); }
+.light .yo-landing .hover\:bg-white\/\[0\.04\]:hover { background-color: rgba(0, 0, 0, 0.045); }
+
+/* CTA hover glow */
+.light .yo-landing .hover\:shadow-\[0_0_36px_-6px_rgba\(255\,255\,255\,0\.5\)\]:hover { box-shadow: 0 0 36px -6px rgba(0, 0, 0, 0.25); }
+
+/* SVG logo — fill="#ffffff" is a presentation attribute; CSS fill wins.
+   Attribute selector covers every white-filled svg text on the landing
+   (hero + Logo component) without needing Logo.jsx's source. */
+.light .yo-landing text[fill="#ffffff"] { fill: #1a1a1a; }
+
+/* ══════════ Light theme — LANDING (single canonical block) ══════════ */
+
+.light body { background-color: #f4f4f2; color: #1a1a1a; }
+
+/* root — yo-landing + bg-black sit on the same element */
+.light .yo-landing.bg-black { background-color: #f4f4f2; }
+.light .yo-landing.text-white { color: #1a1a1a; }
+
+/* surfaces */
+.light .yo-landing .bg-black\/80 { background-color: rgba(244, 244, 242, 0.85); }
+.light .yo-landing .bg-black\/90 { background-color: rgba(244, 244, 242, 0.92); }
+.light .yo-landing .bg-black\/40 { background-color: rgba(0, 0, 0, 0.08); }
+.light .yo-landing .bg-white\/\[0\.012\] { background-color: rgba(0, 0, 0, 0.015); }
+.light .yo-landing .bg-white\/\[0\.02\] { background-color: rgba(0, 0, 0, 0.02); }
+.light .yo-landing .bg-white\/\[0\.025\] { background-color: rgba(0, 0, 0, 0.025); }
+.light .yo-landing .bg-white\/\[0\.03\] { background-color: rgba(0, 0, 0, 0.03); }
+.light .yo-landing .bg-white\/\[0\.04\] { background-color: rgba(0, 0, 0, 0.04); }
+.light .yo-landing .bg-white\/\[0\.06\] { background-color: rgba(0, 0, 0, 0.05); }
+.light .yo-landing .bg-white\/5 { background-color: rgba(0, 0, 0, 0.04); }
+.light .yo-landing .bg-white\/10 { background-color: rgba(0, 0, 0, 0.06); }
+.light .yo-landing .bg-white\/55 { background-color: rgba(0, 0, 0, 0.55); }
+.light .yo-landing .bg-white\/90 { background-color: #1a1a1a; }
+
+/* ChatPreview window */
+.light .yo-landing .bg-\[\#060606\]\/90 { background-color: rgba(255, 255, 255, 0.92); }
+.light .yo-landing .shadow-\[0_40px_100px_-20px_rgba\(0\,0\,0\,0\.9\)\] { box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.14); }
+
+/* primary CTA inverts */
+.light .yo-landing .bg-white { background-color: #1a1a1a; }
+.light .yo-landing .text-black { color: #fafafa; }
+.light .yo-landing .hover\:bg-gray-200:hover { background-color: #3f3f46; }
+.light .yo-landing .hover\:shadow-\[0_0_24px_-6px_rgba\(255\,255\,255\,0\.5\)\]:hover { box-shadow: 0 0 24px -6px rgba(0, 0, 0, 0.3); }
+.light .yo-landing .hover\:shadow-\[0_0_36px_-6px_rgba\(255\,255\,255\,0\.5\)\]:hover { box-shadow: 0 0 36px -6px rgba(0, 0, 0, 0.25); }
+
+/* text — these are the rules that were missing */
+.light .yo-landing .text-white { color: #1a1a1a; }
+.light .yo-landing .text-white\/90 { color: rgba(0, 0, 0, 0.88); }
+.light .yo-landing .text-white\/85 { color: rgba(0, 0, 0, 0.82); }
+.light .yo-landing .text-white\/80 { color: rgba(0, 0, 0, 0.78); }
+.light .yo-landing .text-white\/70 { color: rgba(0, 0, 0, 0.65); }
+.light .yo-landing .text-white\/65 { color: rgba(0, 0, 0, 0.58); }
+.light .yo-landing .text-white\/60 { color: rgba(0, 0, 0, 0.55); }
+.light .yo-landing .text-white\/50 { color: rgba(0, 0, 0, 0.48); }
+.light .yo-landing .text-white\/45 { color: rgba(0, 0, 0, 0.45); }
+.light .yo-landing .text-white\/40 { color: rgba(0, 0, 0, 0.42); }
+.light .yo-landing .text-white\/35 { color: rgba(0, 0, 0, 0.38); }
+.light .yo-landing .text-white\/30 { color: rgba(0, 0, 0, 0.35); }
+.light .yo-landing .text-white\/28 { color: rgba(0, 0, 0, 0.35); }
+.light .yo-landing .text-white\/25 { color: rgba(0, 0, 0, 0.32); }
+.light .yo-landing .text-white\/22 { color: rgba(0, 0, 0, 0.30); }
+.light .yo-landing .text-white\/20 { color: rgba(0, 0, 0, 0.28); }
+.light .yo-landing .text-white\/18 { color: rgba(0, 0, 0, 0.28); }
+.light .yo-landing .text-white\/15 { color: rgba(0, 0, 0, 0.25); }
+.light .yo-landing .text-gray-100 { color: #27272a; }
+.light .yo-landing .text-gray-200 { color: #3f3f46; }
+.light .yo-landing .text-gray-300 { color: #52525b; }
+.light .yo-landing .text-gray-400 { color: #6f6f78; }
+.light .yo-landing .text-gray-500 { color: #7e7e87; }
+.light .yo-landing .text-gray-600 { color: #9d9da5; }
+.light .yo-landing .hover\:text-white:hover { color: #18181b; }
+.light .yo-landing .hover\:text-gray-200:hover { color: #3f3f46; }
+.light .yo-landing .hover\:text-gray-300:hover { color: #52525b; }
+.light .yo-landing .hover\:text-gray-400:hover { color: #52525b; }
+.light .yo-landing .hover\:text-white\/55:hover { color: rgba(0, 0, 0, 0.50); }
+.light .yo-landing .hover\:text-white\/65:hover { color: rgba(0, 0, 0, 0.58); }
+.light .yo-landing .group:hover .group-hover\:text-white\/55 { color: rgba(0, 0, 0, 0.50); }
+.light .yo-landing .group:hover .group-hover\:text-white\/65 { color: rgba(0, 0, 0, 0.58); }
+
+/* borders */
+.light .yo-landing .border-white\/10 { border-color: rgba(0, 0, 0, 0.09); }
+.light .yo-landing .border-white\/15 { border-color: rgba(0, 0, 0, 0.14); }
+.light .yo-landing .border-white\/20 { border-color: rgba(0, 0, 0, 0.16); }
+.light .yo-landing .border-white\/25 { border-color: rgba(0, 0, 0, 0.20); }
+.light .yo-landing .border-white\/\[0\.03\] { border-color: rgba(0, 0, 0, 0.04); }
+.light .yo-landing .border-white\/\[0\.05\] { border-color: rgba(0, 0, 0, 0.05); }
+.light .yo-landing .border-white\/\[0\.06\] { border-color: rgba(0, 0, 0, 0.06); }
+.light .yo-landing .border-white\/\[0\.07\] { border-color: rgba(0, 0, 0, 0.07); }
+.light .yo-landing .border-white\/\[0\.08\] { border-color: rgba(0, 0, 0, 0.08); }
+.light .yo-landing .border-white\/\[0\.12\] { border-color: rgba(0, 0, 0, 0.11); }
+.light .yo-landing .border-white\/\[0\.16\] { border-color: rgba(0, 0, 0, 0.14); }
+.light .yo-landing .hover\:border-white\/16:hover { border-color: rgba(0, 0, 0, 0.15); }
+.light .yo-landing .hover\:border-white\/20:hover { border-color: rgba(0, 0, 0, 0.16); }
+.light .yo-landing .hover\:border-white\/25:hover { border-color: rgba(0, 0, 0, 0.20); }
+.light .yo-landing .hover\:border-white\/\[0\.16\]:hover { border-color: rgba(0, 0, 0, 0.14); }
+.light .yo-landing .hover\:border-white\/\[0\.2\]:hover { border-color: rgba(0, 0, 0, 0.16); }
+
+/* hover surfaces */
+.light .yo-landing .hover\:bg-white\/10:hover { background-color: rgba(0, 0, 0, 0.06); }
+.light .yo-landing .hover\:bg-white\/\[0\.012\]:hover { background-color: rgba(0, 0, 0, 0.02); }
+.light .yo-landing .hover\:bg-white\/\[0\.03\]:hover { background-color: rgba(0, 0, 0, 0.04); }
+.light .yo-landing .hover\:bg-white\/\[0\.04\]:hover { background-color: rgba(0, 0, 0, 0.045); }
+.light .yo-landing .hover\:bg-white\/\[0\.06\]:hover { background-color: rgba(0, 0, 0, 0.05); }
+
+/* custom landing classes */
+.light .yo-landing .bg-grid {
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.045) 1px, transparent 1px);
+}
+.light .yo-landing .hero-glow { background: radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.05) 0%, transparent 55%); }
+.light .yo-landing .soft-glow { background: radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.03) 0%, transparent 60%); }
+.light .yo-landing .logo-glow { filter: drop-shadow(0 0 50px rgba(0, 0, 0, 0.10)) drop-shadow(0 0 14px rgba(0, 0, 0, 0.05)); }
+.light .yo-landing .card-premium::before { background: linear-gradient(180deg, rgba(0, 0, 0, 0.10), rgba(0, 0, 0, 0)); }
+.light .yo-landing .card-premium::after { background: radial-gradient(400px circle at var(--mx, 50%) var(--my, 50%), rgba(0, 0, 0, 0.04), transparent 40%); }
+.light .yo-landing .btn-shine::after { background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent); }
+
+/* SVG logos */
+.light .yo-landing text[fill="#ffffff"] { fill: #1a1a1a; }
+
+/* cursor + selection + scrollbar */
+.light .yo-landing .cursor-stream { background: rgba(0, 0, 0, 0.8); box-shadow: none; }
+.light .yo-landing ::selection { background: #1a1a1a; color: #ffffff; }
+.light body::-webkit-scrollbar-track { background: #f4f4f2; }
+.light body::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.18); }
+
+/* ══════════ Landing 2.0 — design tokens (theme = variables, not overrides) ══════════ */
+.yo-landing {
+  --yol-bg: #060606;
+  --yol-fg: #f5f5f4;
+  --yol-muted: rgba(245,245,244,0.55);
+  --yol-faint: rgba(245,245,244,0.32);
+  --yol-border: rgba(245,245,244,0.09);
+  --yol-border-strong: rgba(245,245,244,0.18);
+  --yol-surface: rgba(255,255,255,0.030);
+  --yol-surface-2: rgba(255,255,255,0.065);
+  --yol-accent: #f5f5f4;
+  --yol-accent-fg: #0a0a0a;
+  --yol-grid: rgba(255,255,255,0.032);
+  --yol-glow: rgba(255,255,255,0.07);
+  --yo-logo-a: #ffffff;
+  --yo-logo-b: #cfcfcf;
+  --yo-logo-glow: rgba(255, 255, 255, 0.9);
+}
+.light .yo-landing {
+  --yol-bg: #f5f3ef;
+  --yol-fg: #1c1b19;
+  --yol-muted: rgba(28,27,25,0.58);
+  --yol-faint: rgba(28,27,25,0.36);
+  --yol-border: rgba(28,27,25,0.11);
+  --yol-border-strong: rgba(28,27,25,0.20);
+  --yol-surface: rgba(28,27,25,0.030);
+  --yol-surface-2: rgba(28,27,25,0.060);
+  --yol-accent: #1a1a1a;
+  --yol-accent-fg: #f5f5f4;
+  --yol-grid: rgba(28,27,25,0.05);
+  --yol-glow: rgba(28,27,25,0.06);
+  --yo-logo-a: #3a3a3a;
+  --yo-logo-b: #161616;
+  --yo-logo-glow: rgba(255, 255, 255, 0.65);
+}
+.light body { background-color: #f5f3ef; }
+
+/* landing grid (var-based replacement for .bg-grid) */
+.yol-grid {
+  background-image:
+    linear-gradient(var(--yol-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--yol-grid) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+/* single glint sweep at 1.6s — then the mark is completely stable */
+.yol-glint { opacity: 0; animation: yolGlint 0.55s ease-in-out 1.6s 1 both; }
+@keyframes yolGlint {
+  0% { opacity: 0; transform: translateX(-90px); }
+  45% { opacity: 0.9; }
+  100% { opacity: 0; transform: translateX(230px); }
+}
+/* smooth theme transition on the mark */
+.yol-mark rect, .yol-mark path { transition: fill 0.45s ease, stroke 0.45s ease; }
+.yol-breathe { animation: yolBreathe 6s ease-in-out 2.8s infinite; }
+@keyframes yolBreathe { 0%,100% { opacity: .75; } 50% { opacity: 1; } }
+.yol-ray { opacity: .18; transition: opacity .5s ease; }
+.yol-mark:hover .yol-ray { opacity: .55; }
+
+/* flashcard flip (landing-scoped names) */
+.yol-flip-scene { perspective: 1200px; }
+.yol-flip { transform-style: preserve-3d; transition: transform .55s cubic-bezier(.4,.2,.2,1); }
+.yol-flip.flipped { transform: rotateY(180deg); }
+.yol-flip-face { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.yol-flip-back { transform: rotateY(180deg); }
+
+/* ══════════ Landing 2.0 — Step 1: design system ══════════
+   Fluid typography + section rhythm + layout primitives.
+   Additive only. Consumed by landing sections from Step 2 onward.
+   Everything scoped under .yo-landing — /app and /auth unaffected. */
+
+.yo-landing {
+  /* ── type scale — fluid from 320px to 1440px+ ── */
+  --yol-fs-hero: clamp(2.625rem, 4.6vw + 1rem, 4.25rem);        /* 42 → 68px */
+  --yol-fs-h2: clamp(1.875rem, 2.4vw + 0.9rem, 2.625rem);       /* 30 → 42px */
+  --yol-fs-h3: clamp(1.125rem, 0.8vw + 0.8rem, 1.375rem);       /* 18 → 22px */
+  --yol-fs-body: clamp(0.9375rem, 0.25vw + 0.86rem, 1.0625rem); /* 15 → 17px */
+  --yol-fs-small: 0.8125rem;                                     /* 13px */
+  --yol-fs-eyebrow: 0.6875rem;                                   /* 11px, mono */
+
+  /* ── section rhythm — tighter on mobile, generous on desktop ── */
+  --yol-sec-y: clamp(3rem, 4.5vw, 5.5rem);          /* 48 → 88px — tight editorial rhythm */
+  --yol-sec-y-tight: clamp(2.5rem, 3.5vw, 4rem);    /* intro sections */
+  --yol-gap: clamp(1.25rem, 3vw, 2.5rem);           /* grid gaps */
+
+  /* ── layout ── */
+  --yol-maxw: 88rem;                                 /* 1408px — fills 1280–1512 viewports, caps on ultrawide */
+}
+
+/* ── layout primitives ── */
+.yo-landing .yol-container {
+  width: 100%;
+  max-width: var(--yol-maxw);
+  margin-inline: auto;
+  padding-inline: clamp(1.25rem, 4vw, 2.5rem);     /* 20 → 40px gutter */
+}
+
+.yo-landing .yol-section { padding-block: var(--yol-sec-y); }
+.yo-landing .yol-section-tight { padding-block: var(--yol-sec-y-tight); }
+
+/* ── typography primitives ── */
+.yo-landing .yol-eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--yol-fs-eyebrow);
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--yol-faint);
+}
+
+.yo-landing .yol-h1 {
+  font-size: var(--yol-fs-hero);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1.04;
+  text-wrap: balance;
+}
+
+.yo-landing .yol-h2 {
+  font-size: var(--yol-fs-h2);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+  text-wrap: balance;
+}
+
+.yo-landing .yol-h3 {
+  font-size: var(--yol-fs-h3);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+.yo-landing .yol-body {
+  font-size: var(--yol-fs-body);
+  line-height: 1.65;
+  font-weight: 300;
+  color: var(--yol-muted);
+}
+
+/* ══════════ PDF export — print-only view ══════════
+   While body.pdf-exporting is set, everything hidden except the
+   print container rendered into #pdf-export-root. */
+body.pdf-exporting *:not(#pdf-export-root):not(#pdf-export-root *) {
+  visibility: hidden !important;
+}
+#pdf-export-root {
+  display: none;
+}
+body.pdf-exporting #pdf-export-root {
+  display: block;
+  visibility: visible;
+  position: absolute;
+  inset: 0;
+  background: #ffffff;
+  color: #111111;
+  padding: 32px 36px;
+  font-family: var(--font-sans);
+  z-index: 9999;
+}
+#pdf-export-root .pdf-title {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #111111;
+}
+#pdf-export-root .pdf-meta {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #888888;
+  font-family: var(--font-mono);
+}
+#pdf-export-root .pdf-msg-user {
+  margin-top: 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111111;
+}
+#pdf-export-root .pdf-msg-ai {
+  margin-top: 4px;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: #333333;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+#pdf-export-root .pdf-turn {
+  margin-top: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #eeeeee;
+}
+@media print {
+  body.pdf-exporting #pdf-export-root {
+    position: static;
+    inset: auto;
+    z-index: auto;
+  }
 }

@@ -1,11 +1,18 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <script>
+      try {
+        if (localStorage.getItem("yo-theme") === "light") {
+          document.documentElement.classList.add("light");
+        }
+      } catch (e) {}
+    </script>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/favicon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
     <meta name="theme-color" content="#000000" />
     <meta name="description" content="yo — Your Gen-Z AI learning companion. Learn. Build. Level Up. Understand concepts, study smarter, code better, and prep for interviews." />
     <meta name="keywords" content="yo, AI learning, study companion, exam prep, coding assistant, interview prep" />

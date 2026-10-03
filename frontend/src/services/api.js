@@ -28,11 +28,11 @@ async function request(endpoint, options = {}) {
 
 /* ── Auth ── */
 
-export async function register(username, email, password) {
+export async function register(name, email, password) {
   const r = await request("/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, email, password }),
+    body: JSON.stringify({ name, email, password }),
   });
   return r.json();
 }
@@ -201,11 +201,21 @@ export async function googleSignIn(credential) {
   return r.json();
 }
 
-export async function setUsername(username) {
-  const r = await request("/auth/username", {
+export async function setDisplayName(name) {
+  const r = await request("/auth/display-name", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username }),
+    body: JSON.stringify({ name }),
   });
+  return r.json();
+}
+
+export async function clearChatHistory() {
+  const r = await request("/chats", { method: "DELETE" });
+  return r.json();
+}
+
+export async function deleteAccount() {
+  const r = await request("/auth/delete-account", { method: "POST" });
   return r.json();
 }

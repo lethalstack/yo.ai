@@ -1,39 +1,23 @@
-import { useNavigate } from "react-router-dom";
+import LandingNavbar from "../components/landing/LandingNavbar";
+import Hero from "../components/landing/Hero";
+import WhatIsYo from "../components/landing/sections/WhatIsYo";
+import AskShowcase from "../components/landing/sections/AskShowcase";
+import DropShowcase from "../components/landing/sections/DropShowcase";
+import LearnShowcase from "../components/landing/sections/LearnShowcase";
+import ModesShowcase from "../components/landing/ModesShowcase";
+import Closing from "../components/landing/Closing";
 
-import Navbar from "../components/Navbar";
-import Hero from "../components/Hero";
-import Features from "../components/Features";
-import ChatPreview from "../components/ChatPreview";
-import ModePreview from "../components/ModePreview";
-
-import Footer from "../components/Footer";
-
-
-export default function AppPage(){
-
-  const navigate = useNavigate();
-
+export default function AppPage() {
   return (
-
-    <div className="bg-black text-white min-h-screen">
-
-      <Navbar />
-
-      <Hero 
-        onStart={() => navigate("/app")}
-      />
-
-      <Features />
-
-      <ChatPreview />
-
-      <ModePreview />
-
-
-      <Footer />
-
+    <div className="yo-landing min-h-screen bg-[var(--yol-bg)] text-[var(--yol-fg)] antialiased overflow-x-clip">
+      <LandingNavbar />
+      <Hero />
+      <WhatIsYo />
+      <AskShowcase />
+      <DropShowcase />
+      <LearnShowcase />
+      <ModesShowcase />
+      <Closing />
     </div>
-
-  )
-
+  );
 }

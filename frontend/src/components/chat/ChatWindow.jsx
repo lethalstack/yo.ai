@@ -1,10 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import * as api from "../../services/api";
 import { PanelLeft, ListChecks, Layers } from "lucide-react";
 import { Link } from "react-router-dom";
 import MessageBubble from "./MessageBubble";
 import ChatInput from "./ChatInput";
 import QuizModal from "./QuizModal";
+
+const EASE = [0.16, 1, 0.3, 1];
 
 // use whatever host the page was loaded from (localhost, 127.0.0.1, or a
 // LAN IP like 192.168.x.x) instead of a hardcoded 127.0.0.1 — this is
@@ -45,15 +48,16 @@ export default function ChatWindow({
   onOpenSidebar,
   sidebarCollapsed,
   onExpandSidebar,
+  onMessagesChange,
 }) {
-    const displayName =
-    user?.email
-      ?.split("@")[0]
-      ?.replace(/[._-]+/g, " ")
-      ?.replace(/\b\w/g, (char) => char.toUpperCase()) || "there";
+    const reduce = useReducedMotion();
+    const userName =
+    user?.display_name ||
+    user?.email?.split("@")[0]?.replace(/[._-]+/g, " ") ||
+    "there";
 
   const [messages, setMessages] = useState([]);
-  const [activeMode, setActiveMode] = useState(sessionMode || "chill");
+  const [activeMode, setActiveMode] = useState(sessionMode || null);
   const [modeSelected, setModeSelected] = useState(false);
   const [messageIds, setMessageIds] = useState({}); // track AI message DB IDs
   const [thinkingMessageIndex, setThinkingMessageIndex] = useState(null); // which message is thinking
@@ -64,6 +68,14 @@ export default function ChatWindow({
   const [studySet, setStudySet] = useState(null);
   const [documents, setDocuments] = useState([]);
   const skipNextFetchRef = useRef(false);
+
+  // report whether the open chat has messages — the sidebar's Export
+  // pill dims itself while a fresh chat is still empty
+  const hasMessages = messages.length > 0;
+  useEffect(() => {
+    onMessagesChange?.(hasMessages);
+  }, [hasMessages, onMessagesChange]);
+
 
   // Load messages whenever the active chat changes (e.g. user clicks
   // a different conversation in the sidebar)
@@ -76,7 +88,7 @@ export default function ChatWindow({
 
    if (!chatId) {
       setMessages([]);
-      setActiveMode(sessionMode || "chill");
+      setActiveMode(sessionMode || null);
       setStudySet(null);
       setDocuments([]);
       setModeSelected(false);
@@ -94,7 +106,7 @@ export default function ChatWindow({
         shouldAutoScrollRef.current = true;
 
         setMessages(data.messages || []);
-        setActiveMode(data.mode || "chill");
+        setActiveMode(data.mode || null);
         setDocuments(data.documents || []);
         setModeSelected(true);
       }
@@ -114,8 +126,11 @@ export default function ChatWindow({
   if (resetSignal === 0) return;
   shouldAutoScrollRef.current = true;
   setMessages([]);
-  setActiveMode(sessionMode || "chill");
+    setActiveMode(sessionMode || null);
   setStudySet(null);
+  // fresh state = no active-chat chrome, or the docked composer stays
+  // mounted under the starting composer (the "two composers" bug)
+  setModeSelected(false);
 }, [resetSignal]);
 
 
@@ -175,6 +190,11 @@ export default function ChatWindow({
   // narrow dependency list (using functional setMessages updates) so the
   // function reference passed to ChatInput stays stable across renders.
   const sendMessage = useCallback(async (userMessage, pendingAttachments) => {
+    // first send from the starting page: reveal the active-chat chrome
+    // (navbar + docked composer). New chats skip the chatId-fetch effect,
+    // so modeSelected would otherwise stay false until the chat is
+    // reopened from history.
+    setModeSelected(true);
 
     const displayText = userMessage || (
   pendingAttachments.length > 0
@@ -206,7 +226,7 @@ setMessages(prev => [
 
       // first message of a brand-new conversation: create the chat row now
       if (!currentChatId) {
-        const newChatData = await api.newChat(sessionMode || "chill");
+      const newChatData = await api.newChat(activeMode || "chill");
         currentChatId = newChatData.chat_id;
 
         skipNextFetchRef.current = true;
@@ -302,7 +322,7 @@ setMessages(prev => [
 
     }
 
-  }, [chatId, sessionMode, onChatCreated, refreshChats]);
+  }, [chatId, sessionMode, activeMode, onChatCreated, refreshChats]);
 
   // Regenerate the latest AI response
   // Called with messageIndex to regenerate that specific message
@@ -342,41 +362,28 @@ setMessages(prev => [
 
   return (
 
-    <div className="flex-1 h-full flex flex-col bg-black text-white min-w-0 overflow-hidden relative">
+    <div className="flex-1 h-full flex flex-col bg-black text-white min-w-0 overflow-hidden relative isolate">
 
-      {/* mobile-only floating menu toggle — FIXED to prevent keyboard scroll */}
-      <button
-        onClick={onOpenSidebar}
-        className="
-          sm:hidden
-          fixed top-3 left-3 z-20
-          w-9 h-9 flex flex-col items-center justify-center gap-[4px]
-          rounded-full text-gray-200
-          bg-neutral-900/95 border border-white/10
-          active:bg-white/10
-          transition-colors
-        "
-      >
-        <span className="block h-[1.5px] w-3.5 bg-current rounded-full" />
-        <span className="block h-[1.5px] w-2 bg-current rounded-full self-start ml-[11px]" />
-      </button>
-
-      {/* mobile-only floating yo pill — FIXED to prevent keyboard scroll */}
-      <Link
-        to="/"
-        className="
-          sm:hidden
-          fixed top-3 right-3 z-20
-          h-9 px-3 flex items-center
-          rounded-full text-[12px] font-semibold tracking-[-0.03em] text-white
-          bg-neutral-900/95 border border-white/10
-        "
-      >
-        yo<span className="opacity-40"></span>
-      </Link>
+     
 
       {/* desktop-only floating re-expand icon, shown when the sidebar is collapsed —
           floats directly over the content, doesn't reserve a header strip */}
+
+                {/* ghost watermark — the mark, huge and barely-there, pinned to the top.
+          Behind all content (negative z, root is isolated). Starting page only. */}
+      {messages.length === 0 && (
+        <div
+          aria-hidden="true"
+          className="yo-ghost yo-ghost-wrap pointer-events-none select-none absolute inset-x-0 mx-auto -z-10 w-[100vw] sm:w-[min(66vw,780px)]"
+        >
+          <svg viewBox="320 243 601 760" className="block w-full h-auto" fill="currentColor" shapeRendering="geometricPrecision">
+            <path d="M340 263H428V402L507 484V263H604V710L428 530V600L604 832V983L362 662L340 636Z" />
+            <path d="M641 263H760V353H727V718L760 678V822L641 973Z" />
+            <path d="M781 263H901V636L781 795V648L816 602V353H781Z" />
+          </svg>
+        </div>
+      )}
+
       {sidebarCollapsed && (
         <button
           onClick={onExpandSidebar}
@@ -393,100 +400,216 @@ setMessages(prev => [
         </button>
       )}
 
-      {/* Study tools */}
-        {modeSelected && (
-          <div className="absolute top-3 left-1/2 z-30 w-[calc(100%-2rem)] -translate-x-1/2 sm:w-[calc(100%-5rem)]">
-          <div className="max-w-3xl mx-auto flex items-center justify-between gap-3 rounded-xl border border-white/[0.08] bg-neutral-950/90 px-4 py-1 backdrop-blur-xl">
-            <span className="text-sm text-gray-500">
-              {MODE_META[activeMode]?.label || "Chill Mode"}
-            </span>
+      {/* ═══ floating nav — mobile: ☰ + pill in one row · desktop: centered pill ═══ */}
+      <div className="sm:hidden absolute top-3 left-2 right-2 z-30 flex items-center gap-1.5">
+        <button
+          onClick={onOpenSidebar}
+          aria-label="Open menu"
+          className={`shrink-0 h-11 px-3.5 flex items-center text-gray-200 transition-all ${
+            modeSelected
+              ? "rounded-full border border-white/[0.12] bg-neutral-900/70 backdrop-blur-xl active:bg-white/10"
+              : "active:opacity-70"
+          }`}
+        >
+          <span className="flex flex-col gap-[4px]">
+            <span className="block h-[1.5px] w-3.5 bg-current rounded-full" />
+            <span className="block h-[1.5px] w-2.5 bg-current rounded-full" />
+          </span>
+        </button>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setStudySet({ kind: "quiz" })}
-                disabled={!chatId}
-                className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs text-gray-300 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <ListChecks size={15} />
-                Quiz
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setStudySet({ kind: "flashcards" })}
-                disabled={!chatId}
-                className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs text-gray-300 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Layers size={15} />
-                Cards
-              </button>
-            </div>
-          </div>
+        <div
+                    className={`flex-1 flex items-center h-11 rounded-full border border-white/[0.12] bg-neutral-900/95 backdrop-blur-xl pl-4 pr-1.5 gap-2 transition-opacity duration-300 ${
+            modeSelected ? "opacity-100" : "opacity-0 pointer-events-none"
+          }`}
+        >
+          <span className="text-[13px] font-medium text-white whitespace-nowrap">
+            {activeMode ? MODE_META[activeMode]?.label : "YO"}
+          </span>
+          <span className="flex-1" />
+          <button
+            type="button"
+            onClick={() => setStudySet({ kind: "quiz" })}
+            disabled={!chatId}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 h-8 text-[12px] text-gray-300 transition hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <ListChecks size={13} /> Quiz
+          </button>
+          <button
+            type="button"
+            onClick={() => setStudySet({ kind: "flashcards" })}
+            disabled={!chatId}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 h-8 text-[12px] text-gray-300 transition hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Layers size={13} /> Cards
+          </button>
         </div>
-        )}
+      </div>
+
+      <div
+        className={`hidden sm:flex absolute top-3 left-0 right-0 z-20 mx-auto items-center h-12 rounded-full border border-white/[0.12] bg-neutral-900/95 backdrop-blur-xl pl-5 pr-2 gap-3 max-w-3xl transition-opacity duration-300 ${
+          modeSelected ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+      >
+        <span className="text-[13px] font-medium text-white">
+          {activeMode ? MODE_META[activeMode]?.label : "YO"}
+        </span>
+        <span className="flex-1" />
+        <button
+          type="button"
+          onClick={() => setStudySet({ kind: "quiz" })}
+          disabled={!chatId}
+          className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 h-8 text-[12px] text-gray-300 transition hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <ListChecks size={13} /> Quiz
+        </button>
+        <button
+          type="button"
+          onClick={() => setStudySet({ kind: "flashcards" })}
+          disabled={!chatId}
+          className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 h-8 text-[12px] text-gray-300 transition hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <Layers size={13} /> Cards
+        </button>
+      </div>
+      {messages.length > 0 && (
+        <>
+          <div aria-hidden="true" className="yo-blur-band yo-blur-band--top" />
+          <div aria-hidden="true" className="yo-blur-band yo-blur-band--bottom" />
+        </>
+      )}
 
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-10 pt-16 sm:pt-8 pb-24 sm:pb-20"
+        className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-10 pt-20 sm:pt-20 pb-24 sm:pb-24 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         style={{ contain: "content" }}
       >
 
         {messages.length === 0 ? (
 
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center px-4">
-              <h1 className="text-2xl sm:text-4xl font-semibold tracking-tight">
-                yo wassup. leave the rest to me.
-              </h1>
+          <div className="h-full flex flex-col items-center px-4 pb-8">
+            {/* intentional empty space above — the composition sits low */}
+            <div className="h-[38vh] sm:h-[24vh]" aria-hidden="true" />
 
-              <p className="text-gray-500 mt-4">
-                ideas, code, exams, whatever - just say it.
-              </p>
+            {/* ═══ MOBILE — editorial hero · text mode selector · composer low ═══ */}
+            <div className="lg:hidden w-full self-start pl-4 pr-4 order-1">
+              <span className="block font-mono text-[16px] tracking-[0.04em] text-gray-400 pl-[2.1em]">
+                  yo {userName}.
+                </span>
+              <span className="yo-serif block whitespace-nowrap text-[clamp(26px,8.6vw,42px)] leading-[1.05] text-white mt-2">
+                Leave the rest to me.
+              </span>
+            </div>
 
-              <div className="mt-10">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-gray-600 mb-4">
-                  What are we doing?
-                </p>
+            {/* mobile modes — one quiet text line, not buttons */}
+            <div className="lg:hidden order-2 mt-9 self-start pl-4 flex flex-wrap items-center gap-x-2 gap-y-1">
+              {Object.entries(MODE_META).map(([mode, meta], i) => (
+                <span key={mode} className="flex items-center gap-2">
+                  {i > 0 && (
+                    <span className="text-gray-600 text-[12px]" aria-hidden="true">·</span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setActiveMode(mode)}
+                    className={`text-[14px] transition-colors duration-200 ${
+                      activeMode === mode
+                        ? "text-white underline underline-offset-[6px] decoration-current"
+                        : "text-gray-500 hover:text-gray-300"
+                    }`}
+                  >
+                    {meta.label}
+                  </button>
+                </span>
+              ))}
+            </div>
 
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  {Object.entries(MODE_META).map(([mode, meta]) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      onClick={() => {
-                        setActiveMode(mode);
-                        setModeSelected(true);
-                      }}
-                      className="
-                        group flex items-center gap-2
-                        rounded-full border border-white/[0.08]
-                        bg-white/[0.025]
-                        px-4 py-2
-                        text-sm text-gray-400
-                        transition-all duration-200
-                        hover:-translate-y-0.5
-                        hover:border-white/[0.16]
-                        hover:bg-white/[0.06]
-                        hover:text-white
-                        active:scale-[0.97]
-                      "
+            {/* mobile composer — pinned toward the bottom */}
+            {!chatId && (
+              <div className="lg:hidden order-3 w-full mt-7">
+                <ChatInput
+                  variant="compact"
+                  resetSignal={resetSignal}
+                  showJumpButton={showJumpButton}
+                  onJumpToLatest={jumpToLatest}
+                  onSend={sendMessage}
+                />
+
+                {/* selected mode — quiet label under the composer */}
+                <AnimatePresence mode="popLayout">
+                  {activeMode && (
+                    <motion.span
+                      key={activeMode}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, transition: { duration: 0.35, ease: "easeOut" } }}
+                      transition={{ duration: 0.8, ease: [0.45, 0.05, 0.25, 1] }}
+                      className="block mt-2.5 pl-3 text-[11px] font-mono text-gray-500 select-none whitespace-nowrap"
                     >
-                      <span className="text-sm transition-transform duration-200 group-hover:scale-110">
-                        {meta.emoji}
-                      </span>
+                      {MODE_META[activeMode]?.emoji} {MODE_META[activeMode]?.label}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
 
-                      <span>{meta.label}</span>
-                    </button>
-                  ))}
+            {/* ═══ DESKTOP — low editorial hero · composer · mode pills below ═══ */}
+                        <div className="hidden lg:flex flex-col items-center w-full flex-1 min-h-0">
+                        <div className="h-[calc(22vh_+_24px)]" aria-hidden="true" />
+
+                            <div className="text-left">
+                <span className="block font-mono text-[16px] tracking-[0.04em] text-gray-400 pl-[2.1em]">
+                  yo {userName}.
+                </span>
+                <span className="hero-breathe block text-[60px] leading-[1.04] font-semibold tracking-[-0.035em] text-white mt-2">
+                  Leave the rest to me.
+                </span>
+              </div>
+
+              {!chatId && (
+                <div className="w-full max-w-2xl mt-8">
+                  <ChatInput
+                    variant="hero"
+                    modeTag={activeMode ? `${MODE_META[activeMode]?.emoji} ${activeMode} mode` : null}
+                    resetSignal={resetSignal}
+                    showJumpButton={showJumpButton}
+                    onJumpToLatest={jumpToLatest}
+                    onSend={sendMessage}
+                  />
                 </div>
+              )}
+
+                            {/* desktop mode pills — BELOW the composer */}
+              <div className="mt-6 flex items-center justify-center gap-3">
+                {Object.entries(MODE_META).map(([mode, meta]) => (
+                                    <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setActiveMode(mode)}
+                    className={`relative overflow-hidden rounded-full p-px text-[13px] transition-all duration-200 active:scale-[0.97] ${
+                      activeMode === mode
+                        ? "bg-white/25 text-white"
+                        : "bg-white/[0.08] text-gray-400 hover:bg-white/15 hover:text-white"
+                    }`}
+                  >
+                                        <motion.span
+                      aria-hidden="true"
+                      className="absolute left-1/2 top-1/2 aspect-square w-[300%] text-white opacity-40"
+                      style={{ x: "-50%", y: "-50%", background: "conic-gradient(from 0deg, transparent 0deg, transparent 300deg, currentColor 342deg, transparent 357deg)" }}
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 10, ease: "linear", repeat: Infinity }}
+                    />
+                    <span className={`relative flex items-center gap-2 h-[34px] px-4 rounded-full ${activeMode === mode ? "yo-mode-active bg-neutral-700" : "bg-neutral-900"}`}>
+                      <span className="text-[13px] leading-none">{meta.emoji}</span>
+                      <span className="font-medium">{meta.label}</span>
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
 
         ) : (
 
-          <div className="max-w-3xl mx-auto space-y-8">
+                   <div className="max-w-3xl mx-auto space-y-8 pt-4 sm:pt-12">
 
             {messages.map((msg, index) => (
   <div key={index} className="space-y-4">
@@ -519,8 +642,9 @@ setMessages(prev => [
 
       </div>
 
-      {modeSelected && (
+      {modeSelected && messages.length > 0 && (
         <ChatInput
+          variant="docked"
           resetSignal={resetSignal}
           showJumpButton={showJumpButton}
           onJumpToLatest={jumpToLatest}

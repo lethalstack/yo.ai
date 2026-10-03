@@ -79,6 +79,8 @@ SCHEMA = [
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT NOT NULL UNIQUE,
     username TEXT UNIQUE,
+    display_name TEXT,
+    profile_picture TEXT,
     password_hash TEXT NOT NULL,
     email_verified INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -107,7 +109,7 @@ SCHEMA = [
         is_pinned INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )""",
-    """CREATE TABLE IF NOT EXISTS messages (
+        """CREATE TABLE IF NOT EXISTS messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         chat_id INTEGER NOT NULL,
         user_message TEXT,
@@ -115,7 +117,43 @@ SCHEMA = [
         feedback TEXT,
         created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )""",
+    """CREATE TABLE IF NOT EXISTS documents (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id INTEGER NOT NULL,
+        filename TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )""",
+    """CREATE TABLE IF NOT EXISTS quizzes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id INTEGER NOT NULL,
+        kind TEXT NOT NULL DEFAULT 'quiz',
+        payload TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        FOREIGN KEY (chat_id) REFERENCES chats(id)
+    )""",
 ]
+
+
+def _add_column_if_missing(cur, table, column, decl):
+    """Additive, idempotent column migration. Checks PRAGMA table_info
+    first (works on local sqlite3 and Turso's HTTP protocol); falls back
+    to ALTER-and-catch, swallowing ONLY the expected 'duplicate column'
+    error (e.g. two concurrent cold starts racing) — any real database
+    error propagates and fails the boot loudly."""
+    try:
+        cur.execute(f"PRAGMA table_info({table})")
+        rows = cur.fetchall()
+        if rows and any(r["name"] == column for r in rows):
+            return
+    except Exception:
+        pass  # pragma unavailable → rely on the ALTER + narrow catch below
+    try:
+        cur.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+    except Exception as e:
+        if "duplicate column" in str(e).lower():
+            return
+        raise
 
 
 def init_db():
@@ -123,5 +161,17 @@ def init_db():
     cur = conn.cursor()
     for stmt in SCHEMA:
         cur.execute(stmt)
+
+    # Column migrations — additive only. The legacy username column is
+    # intentionally kept untouched (rollback safety); app code no longer
+    # reads or writes it. display_name is backfilled from username once,
+    # only where it's still empty.
+    _add_column_if_missing(cur, "users", "display_name", "TEXT")
+    _add_column_if_missing(cur, "users", "profile_picture", "TEXT")
+    cur.execute(
+        "UPDATE users SET display_name = username "
+        "WHERE (display_name IS NULL OR display_name = '') AND username IS NOT NULL"
+    )
+
     conn.commit()
     conn.close()

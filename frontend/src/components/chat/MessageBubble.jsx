@@ -191,8 +191,8 @@ function MessageBubble({
               </div>
             )}
             <div className="
-              bg-white rounded-2xl
-              border border-black/[0.08]
+              bg-white/[0.08] rounded-2xl
+              border border-white/[0.08]
               overflow-hidden
               transition-all duration-200 ease-premium
             ">
@@ -209,7 +209,7 @@ function MessageBubble({
                 }}
                 className="
                   w-full bg-transparent outline-none resize-none
-                  text-black text-[15px] leading-relaxed
+                  text-white text-[15px] leading-relaxed
                   px-4 py-2.5
                   min-h-[40px] max-h-[200px] overflow-y-auto
                 "
@@ -221,8 +221,8 @@ function MessageBubble({
                   className="
                     h-7 px-2.5 flex items-center gap-1.5
                     rounded-lg text-[12px] font-medium
-                    text-gray-500 hover:text-gray-700
-                    hover:bg-black/[0.04]
+                    text-gray-400 hover:text-gray-200
+                    hover:bg-white/[0.06]
                     transition-colors duration-150
                   "
                 >
@@ -235,8 +235,8 @@ function MessageBubble({
                   className="
                     h-7 px-2.5 flex items-center gap-1.5
                     rounded-lg text-[12px] font-medium
-                    bg-black text-white
-                    disabled:bg-gray-200 disabled:text-gray-400
+                    bg-white text-black
+                    disabled:bg-white/10 disabled:text-gray-600
                     hover:opacity-80
                     transition-all duration-150
                   "
@@ -289,25 +289,24 @@ function MessageBubble({
                   flex items-center gap-3
                   w-[260px] max-w-full
                   rounded-2xl
-                  border border-black/[0.08]
-                  bg-white
+                  border border-white/[0.08]
+                  bg-white/[0.08]
                   px-3.5 py-3
-                  shadow-[0_2px_12px_-2px_rgba(255,255,255,0.08)]
                 "
               >
                 <div
                   className="
                     w-10 h-10 shrink-0
                     rounded-xl
-                    bg-black/[0.06]
+                    bg-white/[0.06]
                     flex items-center justify-center
                   "
                 >
-                  <FileText size={19} className="text-gray-700" />
+                  <FileText size={19} className="text-gray-400" />
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-medium text-black truncate">
+                  <p className="text-[13px] font-medium text-white truncate">
                     {attachmentName}
                   </p>
                   <p className="mt-0.5 text-[11px] text-gray-500">
@@ -319,7 +318,7 @@ function MessageBubble({
           )}
 
           {visibleText && (
-            <div className="bg-white text-black rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed shadow-[0_2px_12px_-2px_rgba(255,255,255,0.08)]">
+            <div className="bg-white/15 text-white rounded-2xl px-3.5 py-2 text-[14px] leading-snug break-words">
               {visibleText}
             </div>
           )}

@@ -22,8 +22,8 @@ export default function StudyApp() {
   // landing page "Try it" links arrive as /app?mode=exam etc. — this is
   // the mode any NEW chat created during this visit will use
   const modeParam = searchParams.get("mode");
-  const [sessionMode] = useState(
-    VALID_MODES.includes(modeParam) ? modeParam : "chill"
+    const [sessionMode] = useState(
+    VALID_MODES.includes(modeParam) ? modeParam : null
   );
 
   const [chats, setChats] = useState([]);
@@ -31,6 +31,7 @@ export default function StudyApp() {
   const [resetSignal, setResetSignal] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false); // mobile drawer state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // desktop collapse state
+  const [chatHasMessages, setChatHasMessages] = useState(false);
 
   const refreshChats = useCallback(async () => {
   try {
@@ -65,9 +66,11 @@ export default function StudyApp() {
     setSidebarOpen(false);
   }
 
-  function handleChatCreated(id) {
+    function handleChatCreated(id) {
     setActiveChatId(id);
-    setChats(prev => [{ id, title: "New Chat", mode: sessionMode }, ...prev]);
+    // backend stores "chill" when no mode was picked (see sendMessage's
+    // api.newChat fallback) — optimistic row matches what the server returns
+    setChats(prev => [{ id, title: "New Chat", mode: sessionMode || "chill" }, ...prev]);
   }
 
   async function handleDeleteChat(id) {
@@ -86,9 +89,15 @@ export default function StudyApp() {
   }
 }
 
+  function handleHistoryCleared() {
+    setActiveChatId(null);
+    setResetSignal(prev => prev + 1);
+    refreshChats();
+  }
+
   return (
 
-      <div className="flex h-dvh bg-black relative overflow-hidden sm:p-3 sm:gap-3">
+    <div className="yo-shell flex h-dvh bg-black relative overflow-hidden sm:p-3 sm:gap-3">
 
       <Sidebar
         chats={chats}
@@ -101,6 +110,8 @@ export default function StudyApp() {
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
         refreshChats={refreshChats}
+        onHistoryCleared={handleHistoryCleared}
+        hasMessages={chatHasMessages}
       />
 
       <div className="flex-1 text-white min-w-0 sm:rounded-2xl sm:border sm:border-white/[0.08] sm:overflow-hidden">
@@ -115,6 +126,7 @@ export default function StudyApp() {
           onOpenSidebar={() => setSidebarOpen(true)}
           sidebarCollapsed={sidebarCollapsed}
           onExpandSidebar={() => setSidebarCollapsed(false)}
+          onMessagesChange={setChatHasMessages}
         />
 
       </div>

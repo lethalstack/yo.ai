@@ -1,13 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <circle cx="32" cy="32" r="31" fill="#111111"/>
-  <text
-    x="32"
-    y="42"
-    text-anchor="middle"
-    font-family="Arial, Helvetica, sans-serif"
-    font-size="35"
-    font-weight="700"
-    letter-spacing="-2"
-    fill="#ffffff"
-  >yo</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="320 243 601 760">
+  <path fill="#ffffff" d="M340 263H428V402L507 484V263H604V710L428 530V600L604 832V983L362 662L340 636Z"/>
+  <path fill="#ffffff" d="M641 263H760V353H727V718L760 678V822L641 973Z"/>
+  <path fill="#ffffff" d="M781 263H901V636L781 795V648L816 602V353H781Z"/>
 </svg>

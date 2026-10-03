@@ -1,9 +1,11 @@
 import { useNavigate } from "react-router-dom";
 import { Settings, User, LogOut, ChevronLeft } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 
 export default function SettingsPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, setUser } = useAuth();
+  const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
 
   async function handleLogout() {
@@ -43,7 +45,7 @@ export default function SettingsPage() {
 
             <div className="min-w-0">
               <p className="text-sm font-medium text-white truncate">
-                {user?.username || "Set username"}
+                {user?.display_name || user?.email?.split("@")[0] || "yo user"}
               </p>
               <p className="text-xs text-gray-500 truncate">
                 {user?.email}

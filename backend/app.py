@@ -613,6 +613,44 @@ def delete_chat(chat_id):
         print("delete_chat failed:", repr(e))
         return jsonify({"error": str(e)}), 500
 
+@app.route("/api/chats", methods=["DELETE"])
+@require_auth
+def clear_all_chats():
+    """Clear every conversation owned by the authenticated user —
+    chats plus their messages, documents and quizzes. The account
+    itself is untouched. Ownership always resolves through the
+    session user; no IDs are accepted from the client."""
+    try:
+        user_id = g.user["id"]
+        conn = get_db()
+        cursor = conn.cursor()
+
+        # children first, chats last — on local SQLite these four
+        # statements commit as one transaction. On Turso's HTTP protocol
+        # each statement auto-commits (see db.py), so ordering matters:
+        # a mid-failure can only leave same-user orphan rows, which a
+        # retry removes.
+        cursor.execute(
+            "DELETE FROM messages WHERE chat_id IN (SELECT id FROM chats WHERE user_id = ?)",
+            (user_id,),
+        )
+        cursor.execute(
+            "DELETE FROM documents WHERE chat_id IN (SELECT id FROM chats WHERE user_id = ?)",
+            (user_id,),
+        )
+        cursor.execute(
+            "DELETE FROM quizzes WHERE chat_id IN (SELECT id FROM chats WHERE user_id = ?)",
+            (user_id,),
+        )
+        cursor.execute("DELETE FROM chats WHERE user_id = ?", (user_id,))
+
+        conn.commit()
+        conn.close()
+        return jsonify({"ok": True})
+
+    except Exception as e:
+        print("clear_all_chats failed:", repr(e))
+        return jsonify({"error": "Couldn't clear history. Nothing was deleted."}), 500
 
 # Regenerate / edit support: remove the message pair the user is
 # regenerating (or editing), plus everything after it, so the database
@@ -934,6 +972,109 @@ def chat():
             save_message(chat_id, stored_user_message, accumulated, is_new_chat)
 
     return Response(stream_with_context(generate()), mimetype="text/plain")
+
+# ══════════════════════════════════════════════════
+#  GUEST CHAT — landing-page trial, zero persistence
+# ══════════════════════════════════════════════════
+# Visitors can try YO without an account:
+#  - NEVER touches the database (no chats/messages/history rows)
+#  - conversation context comes from the client, lives only in the request
+#  - enforced per-IP: 12 messages / rolling 24h (in-memory, best-effort on
+#    serverless — same ephemerality trade-off as the auth rate limiter)
+
+GUEST_LIMIT = 12
+GUEST_WINDOW = 24 * 60 * 60          # seconds
+GUEST_MAX_HISTORY = 24               # max prior messages accepted (12 pairs)
+GUEST_MAX_CHARS = 2000               # per-message cap
+
+_guest_usage = {}                    # ip -> [timestamps]
+
+@app.route("/api/guest/chat", methods=["POST"])
+def guest_chat():
+    ip = request.remote_addr or "unknown"
+    now = time.time()
+    stamps = [t for t in _guest_usage.get(ip, []) if now - t < GUEST_WINDOW]
+
+    if len(stamps) >= GUEST_LIMIT:
+        return jsonify({"error": "guest_limit_reached"}), 429
+
+    data = request.get_json(silent=True) or {}
+    message = (data.get("message") or "").strip()
+    if not message:
+        return jsonify({"error": "message is required"}), 400
+    if len(message) > GUEST_MAX_CHARS:
+        message = message[:GUEST_MAX_CHARS]
+
+    # sanitize client-supplied history — never trust it blindly
+    clean_history = []
+    for m in (data.get("history") or [])[-GUEST_MAX_HISTORY:]:
+        if not isinstance(m, dict):
+            continue
+        role = m.get("role")
+        content = str(m.get("content") or "")[:GUEST_MAX_CHARS].strip()
+        if role in ("user", "assistant") and content:
+            clean_history.append({"role": role, "content": content})
+
+        GUEST_PROMPT = (
+        "You are yo — a student's AI learning companion. You're calm, sharp, "
+        "slightly playful, never corporate. Talk like a smart friend: lowercase, "
+        "short sentences, no 'I'd be happy to help', no 'Great question!', no "
+        "emoji, no exclamation marks. Get straight to the point, explain things "
+        "simply, and end with a question or suggestion that moves the student "
+        "forward. This is a quick first conversation on the landing page — keep "
+        "replies short (2-4 sentences) and warm but direct."
+    )
+
+        GUEST_PROMPT = (
+        "You are yo — a student's AI learning companion. Calm, sharp, slightly "
+        "playful, never corporate. Talk like a smart friend: lowercase, short "
+        "sentences. Never say 'I'd be happy to help', 'Great question!', or any "
+        "generic assistant phrases. No emoji. No exclamation marks. Never reply "
+        "with just '...', a single word, or an empty response — always say "
+        "something real. If the user's message is unclear, gibberish, or a test, "
+        "briefly ask what they're trying to learn and offer a topic to start "
+        "with. Get straight to the point, explain simply, and end with a "
+        "question or suggestion that moves the student forward. This is a quick "
+        "first conversation on the landing page — keep replies short "
+        "(2-4 sentences)."
+    )
+
+    conversation = (
+        [{"role": "system", "content": GUEST_PROMPT}]
+        + clean_history
+        + [{"role": "user", "content": message}]
+    )
+    conversation = trim_conversation(conversation, max_tokens=4000)
+
+    # count this message against the guest allowance
+    stamps.append(now)
+    _guest_usage[ip] = stamps
+
+    try:
+        stream = client.chat.completions.create(
+            model=TEXT_MODEL,
+            messages=conversation,
+            stream=True,
+        )
+    except Exception as e:
+        # provider failed before anything streamed — refund the message
+        stamps.pop()
+        _guest_usage[ip] = stamps
+        print("Guest chat failed:", repr(e))
+        return jsonify({"error": "yo's catching a breath — try again."}), 500
+
+    def generate():
+        try:
+            for chunk in stream:
+                delta = chunk.choices[0].delta.content or ""
+                if delta:
+                    yield delta
+        except Exception as e:
+            print("Guest streaming failed:", repr(e))
+            yield "\n\n⚠️ Response cut short — please try again."
+
+    return Response(stream_with_context(generate()), mimetype="text/plain")
+
 
 
 @app.errorhandler(Exception)

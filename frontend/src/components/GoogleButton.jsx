@@ -34,13 +34,8 @@ export default function GoogleButton({ onError }) {
       client_id: CLIENT_ID,
       callback: async (response) => {
         try {
-          const d = await api.googleSignIn(response.credential);
-
-          if (!d.user?.username) {
-            window.dispatchEvent(new CustomEvent("yo:username-required"));
-          } else {
-            setUser(d.user);
-          }
+        const d = await api.googleSignIn(response.credential);
+          setUser(d.user);
         } catch (err) {
           onError?.(err.message || "Google sign-in failed.");
         }
