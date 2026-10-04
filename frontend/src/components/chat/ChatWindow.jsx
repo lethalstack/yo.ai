@@ -480,7 +480,7 @@ setMessages(prev => [
 
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-10 pt-20 sm:pt-20 pb-24 sm:pb-24 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-10 pt-20 sm:pt-20 pb-[60px] sm:pb-[60px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         style={{ contain: "content" }}
       >
 
@@ -493,7 +493,7 @@ setMessages(prev => [
             {/* ═══ MOBILE — editorial hero · text mode selector · composer low ═══ */}
             <div className="lg:hidden w-full self-start pl-4 pr-4 order-1">
               <span className="block font-mono text-[16px] tracking-[0.04em] text-gray-400 pl-[2.1em]">
-                  yo {userName}.
+                  yo {userName}
                 </span>
               <span className="yo-serif block whitespace-nowrap text-[clamp(26px,8.6vw,42px)] leading-[1.05] text-white mt-2">
                 Leave the rest to me.
