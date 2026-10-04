@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Link, Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import * as api from "../services/api";
-import Logo from "../components/Logo";
+import LogoFlat from "../components/landing/LogoFlat";
 import GoogleButton from "../components/GoogleButton";
 
 const STEP = Object.freeze({
@@ -15,14 +15,13 @@ const STEP = Object.freeze({
 });
 
 const inputCls =
-  "w-full h-11 px-3.5 rounded-xl bg-white/[0.04] border border-white/10 " +
-  "text-[15px] text-white placeholder:text-gray-600 " +
-  "focus:outline-none focus:border-white/30 transition-colors";
+  "w-full h-11 px-5 rounded-full bg-white/[0.03] border border-white/[0.08] " +
+  "text-[14.5px] text-white placeholder:text-gray-600 " +
+  "focus:outline-none focus:border-white/[0.25] focus:bg-white/[0.05] transition-colors";
 
 const btnCls =
-  "w-full h-11 rounded-xl bg-white text-black text-sm font-medium " +
-  "hover:opacity-85 transition-opacity disabled:opacity-40 disabled:pointer-events-none";
-
+  "auth-btn w-full h-11 rounded-full bg-white text-black text-[14px] font-medium " +
+  "hover:opacity-90 active:scale-[0.99] transition-all disabled:opacity-40 disabled:pointer-events-none";
 export default function AuthPage() {
   const { user, loading, setUser } = useAuth();
   const [searchParams] = useSearchParams();
@@ -179,20 +178,54 @@ if (!loading && user) {
   };
 
   return (
-    <div className="min-h-dvh bg-black text-white flex flex-col items-center justify-center px-4 py-10">
+    <div className="yo-shell relative min-h-dvh bg-black text-white flex flex-col items-center justify-center px-4 py-10 overflow-hidden isolate">
 
+      {/* ghost mark — faint brand signature, cropped at the top, behind everything */}
+      <div
+        aria-hidden="true"
+        className="auth-ghost pointer-events-none select-none absolute left-1/2 -translate-x-1/2 -top-24 -z-10"
+      >
+        <svg viewBox="320 243 601 760" className="block w-[min(80vw,540px)] h-auto" fill="currentColor">
+          <path d="M340 263H428V402L507 484V263H604V710L428 530V600L604 832V983L362 662L340 636Z" />
+          <path d="M641 263H760V353H727V718L760 678V822L641 973Z" />
+          <path d="M781 263H901V636L781 795V648L816 602V353H781Z" />
+        </svg>
+      </div>
+
+      {/* mark */}
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
+        initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="w-full max-w-sm"
+        className="mb-7"
       >
-        <Link to="/" className="flex justify-center mb-8 hover:opacity-75 transition-opacity">
-          <Logo className="text-2xl font-semibold tracking-[-0.03em] text-white" />
+        <Link to="/" aria-label="yo — home" className="flex items-center">
+          <LogoFlat size={30} />
         </Link>
+      </motion.div>
 
-        <div className="border border-white/10 rounded-2xl bg-white/[0.02] p-7">
-          <h1 className="text-lg font-semibold text-center mb-6">{titles[step]}</h1>
+      {/* heading — floats on the canvas, serif for personality */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1], delay: 0.08 }}
+        className="text-center mb-7"
+      >
+        <h1 className="yo-serif text-[30px] sm:text-[34px] leading-[1.08] text-white">
+          {titles[step]}
+        </h1>
+      <p className="mt-2.5 font-['Bebas_Neue'] text-[13px] tracking-[0.18em] text-gray-600 uppercase">
+        THE GAME JUST CHANGED
+      </p>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1], delay: 0.16 }}
+        className="w-full max-w-[340px]"
+      >
+        <div>
 
           {notice && (
             <p className="text-[13px] text-gray-400 bg-white/[0.04] border border-white/10 rounded-xl px-3.5 py-2.5 mb-4">
@@ -221,11 +254,11 @@ if (!loading && user) {
                   <button className={btnCls} disabled={busy}>{busy ? "..." : "Sign in"}</button>
                   <div className="flex items-center justify-between mt-1 text-[13px]">
                     <button type="button" onClick={() => { clearMessages(); setStep(STEP.SIGNUP); }}
-                      className="text-gray-500 hover:text-white transition-colors">
+                      className="text-gray-500 hover:text-gray-300 transition-colors">
                       Create account
                     </button>
                     <button type="button" onClick={() => { clearMessages(); setStep(STEP.FORGOT); }}
-                      className="text-gray-500 hover:text-white transition-colors">
+                      className="text-gray-500 hover:text-gray-300 transition-colors">
                       Forgot password?
                     </button>
                   </div>
@@ -298,7 +331,7 @@ if (!loading && user) {
                 </button>
                 <button type="button" onClick={handleResend}
                   disabled={busy || cooldown > 0}
-                  className="text-[13px] text-gray-500 hover:text-white transition-colors disabled:opacity-40">
+                  className="text-[13px] text-gray-500 hover:text-gray-300 transition-colors disabled:opacity-40">
                   {cooldown > 0 ? `Resend code in ${cooldown}s` : "Resend code"}
                 </button>
                 <button type="button" onClick={() => { clearMessages(); setStep(STEP.SIGNUP); }}
@@ -314,7 +347,7 @@ if (!loading && user) {
                   value={email} onChange={(e) => setEmail(e.target.value)} required />
                 <button className={btnCls} disabled={busy}>{busy ? "..." : "Send reset code"}</button>
                 <button type="button" onClick={() => { clearMessages(); setStep(STEP.LOGIN); }}
-                  className="text-[13px] text-gray-500 hover:text-white transition-colors">
+                  className="text-[13px] text-gray-500 hover:text-gray-300 transition-colors">
                   Back to sign in
                 </button>
               </form>

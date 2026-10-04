@@ -284,6 +284,73 @@ pre code {
   mask-image: linear-gradient(to bottom, #000 0%, #000 26%, transparent 72%);
 }
 
+/* auth page ghost — faint brand signature behind the auth card */
+.auth-ghost {
+  color: rgba(255, 255, 255, 0.05);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, transparent 78%);
+  mask-image: linear-gradient(to bottom, #000 0%, transparent 78%);
+}
+
+/* ═══ Auth page — light theme (scoped to .light .yo-shell) ═══ */
+.light .yo-shell.bg-black { background-color: #f4f4f2; }
+.light .yo-shell.text-white { color: #1a1a1a; }
+
+/* inputs + heading */
+.light .yo-shell .text-white { color: #1a1a1a; }
+.light .yo-shell input.text-white,
+.light .yo-shell .text-white { color: #1a1a1a; }
+.light .yo-shell .bg-white\/\[0\.03\] { background-color: rgba(0, 0, 0, 0.03); }
+.light .yo-shell input:focus.bg-white\/\[0\.05\]:focus { background-color: rgba(0, 0, 0, 0.045); }
+.light .yo-shell .border-white\/\[0\.08\] { border-color: rgba(0, 0, 0, 0.10); }
+.light .yo-shell input:focus:focus,
+.light .yo-shell .focus\:border-white\/\[0\.25\]:focus { border-color: rgba(0, 0, 0, 0.30); }
+.light .yo-shell .placeholder\:text-gray-600::placeholder { color: #a1a1aa; }
+.light .yo-shell .yo-serif { color: #1a1a1a; }
+
+/* ghost mark — dark ink on light canvas */
+.light .yo-shell .auth-ghost { color: rgba(0, 0, 0, 0.045); }
+
+/* primary button inverts (YO convention: dark pill on light canvas) */
+.light .yo-shell .auth-btn {
+  background-color: #1a1a1a;
+  color: #fafafa;
+}
+.light .yo-shell .auth-btn::before {
+  background: conic-gradient(from 0deg, transparent 0deg, transparent 300deg, rgba(0,0,0,0.5) 342deg, transparent 357deg);
+}
+
+/* Google pill — inverts like the primary button in light mode */
+.light .yo-shell .yo-shell-pill,
+.light .auth-pill {
+  background-color: #ffffff;
+  color: #1a1a1a;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+}
+
+/* auth primary button — thin perimeter highlight, 10s lap, only on hover/focus */
+.auth-btn { position: relative; }
+.auth-btn::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 9999px;
+  padding: 1px;
+  background: conic-gradient(from 0deg, transparent 0deg, transparent 300deg, rgba(255,255,255,0.55) 342deg, transparent 357deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: authBeam 10s linear infinite;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+
+.auth-btn:hover::before,
+.auth-btn:focus-visible::before { opacity: 0.5; }
+@keyframes authBeam { to { transform: rotate(360deg); } }
+
+
 .yo-blur-band--bottom {
   bottom: 0;
   height: 68px;

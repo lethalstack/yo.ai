@@ -34,17 +34,19 @@ export default function GoogleButton({ onError }) {
   useEffect(() => {
     if (!ready || !btnRef.current || !CLIENT_ID) return;
 
-    window.google.accounts.id.initialize({
-      client_id: CLIENT_ID,
-      callback: async (response) => {
-        try {
-          const d = await api.googleSignIn(response.credential);
-          setUser(d.user);
-        } catch (err) {
-          onError?.(err.message || "Google sign-in failed.");
-        }
-      },
-    });
+window.google.accounts.id.initialize({
+  client_id: CLIENT_ID,
+  callback: async (response) => {
+    try {
+      const d = await api.googleSignIn(response.credential);
+      setUser(d.user);
+    } catch (err) {
+      onError?.(err.message || "Google sign-in failed.");
+    }
+  },
+  use_fedcm_for_button: true,
+  button_auto_select: true,
+});
 
     window.google.accounts.id.renderButton(btnRef.current, {
       theme: "filled_black",
@@ -60,9 +62,9 @@ export default function GoogleButton({ onError }) {
   if (!CLIENT_ID) return null;
 
   return (
-    <div className="relative mx-auto h-[40px] w-[320px]">
+    <div className="relative mx-auto h-[40px] w-full">
       {/* YO visual button */}
-      <div className="absolute inset-0 flex items-center justify-center gap-3 rounded-full bg-[#252527] text-[15px] font-normal text-white">
+      <div className="yo-shell-pill absolute inset-0 flex items-center justify-center gap-3 rounded-full bg-[#252527] text-[15px] font-normal text-white">
         <img
           src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
           alt=""
