@@ -340,7 +340,7 @@ export default function AskShowcase() {
                         }}
                         maxLength={2000}
                         disabled={inputDisabled}
-                        placeholder={authed ? "Ask yo anything…" : "Ask yo anything — no account needed"}
+                        placeholder={authed ? "Try yo…" : "Jump right in — No sign-up required"}
                         className="flex-1 min-w-0 bg-transparent outline-none text-[13.5px] text-[var(--yol-fg)] placeholder:text-[var(--yol-faint)] disabled:opacity-40"
                       />
                       <button

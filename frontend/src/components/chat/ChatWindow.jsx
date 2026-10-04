@@ -496,7 +496,7 @@ setMessages(prev => [
                   yo {userName}
                 </span>
               <span className="yo-serif block whitespace-nowrap text-[clamp(26px,8.6vw,42px)] leading-[1.05] text-white mt-2">
-                Leave the rest to me.
+                Leave the rest to me
               </span>
             </div>
 
@@ -557,10 +557,10 @@ setMessages(prev => [
 
                             <div className="text-left">
                 <span className="block font-mono text-[16px] tracking-[0.04em] text-gray-400 pl-[2.1em]">
-                  yo {userName}.
+                  yo {userName}
                 </span>
                 <span className="hero-breathe block text-[60px] leading-[1.04] font-semibold tracking-[-0.035em] text-white mt-2">
-                  Leave the rest to me.
+                  Leave the rest to me
                 </span>
               </div>
 
