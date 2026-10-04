@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import LogoMark from "./landing/LogoMark";
 
 export default function RequireAuth({ children }) {
   const { user, loading } = useAuth();
@@ -8,7 +9,7 @@ export default function RequireAuth({ children }) {
   if (loading) {
     return (
       <div className="h-dvh bg-black flex items-center justify-center">
-        <div className="w-2 h-2 rounded-full bg-white/60 animate-pulse" />
+        <LogoMark size={70} speed={2} theme="dark" />
       </div>
     );
   }

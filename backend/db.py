@@ -78,7 +78,6 @@ SCHEMA = [
     """CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT NOT NULL UNIQUE,
-    username TEXT UNIQUE,
     display_name TEXT,
     profile_picture TEXT,
     password_hash TEXT NOT NULL,
@@ -162,16 +161,9 @@ def init_db():
     for stmt in SCHEMA:
         cur.execute(stmt)
 
-    # Column migrations — additive only. The legacy username column is
-    # intentionally kept untouched (rollback safety); app code no longer
-    # reads or writes it. display_name is backfilled from username once,
-    # only where it's still empty.
+    # Column migrations — additive and idempotent.
     _add_column_if_missing(cur, "users", "display_name", "TEXT")
     _add_column_if_missing(cur, "users", "profile_picture", "TEXT")
-    cur.execute(
-        "UPDATE users SET display_name = username "
-        "WHERE (display_name IS NULL OR display_name = '') AND username IS NOT NULL"
-    )
 
     conn.commit()
     conn.close()
