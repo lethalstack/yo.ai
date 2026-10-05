@@ -34,7 +34,13 @@ export default function InstallPill({ variant = "card" }) {
       setGone(true);
     }
 
-    if (!isIOS) window.addEventListener("beforeinstallprompt", onPrompt);
+    if (!isIOS) {
+      // Pick up the install event if it fired before React mounted.
+      if (window.__yoInstallEvent) {
+        setDeferred(window.__yoInstallEvent);
+      }
+      window.addEventListener("beforeinstallprompt", onPrompt);
+    }
     window.addEventListener("appinstalled", onInstalled);
     return () => {
       window.removeEventListener("beforeinstallprompt", onPrompt);
