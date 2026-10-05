@@ -8,18 +8,17 @@ export default function InstallPill({ variant = "card" }) {
   const [deferred, setDeferred] = useState(null);
   const [showHint, setShowHint] = useState(false);
   const [gone, setGone] = useState(() => {
+    // hidden ONLY if actually installed — dismissal never persists
     if (
       window.matchMedia("(display-mode: standalone)").matches ||
       window.navigator.standalone === true
     )
       return true;
     try {
-      return sessionStorage.getItem("yo-install-dismissed") === "1";
-    } catch {
-      return false;
-    }
+      if (localStorage.getItem("yo-install-done") === "1") return true;
+    } catch {}
+    return false;
   });
-
   useEffect(() => {
     if (gone) return;
     const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -30,7 +29,7 @@ export default function InstallPill({ variant = "card" }) {
     }
     function onInstalled() {
       try {
-        localStorage.setItem("yo-install-dismissed", "1"); // installed = permanent
+        localStorage.setItem("yo-install-done", "1"); // permanent — installed
       } catch {}
       setGone(true);
     }
@@ -43,18 +42,36 @@ export default function InstallPill({ variant = "card" }) {
     };
   }, [gone]);
 
+    // if the app gets installed through Chrome's own UI (no event reaches us),
+  // the display-mode flips to standalone — react to that instantly
+  useEffect(() => {
+    const mq = window.matchMedia("(display-mode: standalone)");
+    const onChange = (e) => {
+      if (e.matches) {
+        try {
+          localStorage.setItem("yo-install-done", "1");
+        } catch {}
+        setGone(true);
+      }
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
   function dismiss() {
-    try {
-      sessionStorage.setItem("yo-install-dismissed", "1"); // session-scoped: returns after browser restart
-    } catch {}
-    setGone(true);
+    setGone(true); // this mount only — back on every refresh until installed
   }
 
   async function install() {
     if (deferred) {
       deferred.prompt();
       const choice = await deferred.userChoice;
-      if (choice?.outcome === "accepted") dismiss();
+      if (choice?.outcome === "accepted") {
+        try {
+          localStorage.setItem("yo-install-done", "1"); // permanent — installed
+        } catch {}
+        setGone(true);
+      }
     }
   }
 

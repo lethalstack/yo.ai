@@ -1,5 +1,6 @@
 import Sidebar from "../components/sidebar/Sidebar";
 import ChatWindow from "../components/chat/ChatWindow";
+import InstallPill from "../components/InstallPill";
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useSearchParams } from "react-router-dom";
@@ -128,6 +129,8 @@ export default function StudyApp() {
           onExpandSidebar={() => setSidebarCollapsed(false)}
           onMessagesChange={setChatHasMessages}
         />
+
+        <InstallPill variant="floating" />
 
       </div>
 
