@@ -2,13 +2,15 @@ import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { X, Download } from "lucide-react";
 import LogoFlat from "./landing/LogoFlat";
-import { useTheme } from "../../context/ThemeContext";
+import { useTheme } from "../context/ThemeContext";
 
 /* Install prompt — desktop: card in the sidebar (variant="card").
    Mobile: centered glass dialog over a blurred page (variant="floating").
    Hidden once actually installed; X / "Not now" dismiss for the page view only. */
 export default function InstallPill({ variant = "card" }) {
   const reduce = useReducedMotion();
+  const { theme } = useTheme();
+  const dark = theme !== "light";
   const [deferred, setDeferred] = useState(null);
   const [showHint, setShowHint] = useState(false);
   const [isIOS] = useState(() =>
