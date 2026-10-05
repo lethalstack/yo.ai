@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Download, X, Share } from "lucide-react";
+import { motion } from "framer-motion";
+import { Download, X } from "lucide-react";
 
 /* Install prompt — desktop: card in the sidebar (variant="card").
    Mobile: floating toast on screen (variant="floating").
@@ -69,9 +70,12 @@ export default function InstallPill({ variant = "card" }) {
   }
 
   async function install() {
-    if (deferred) {
-      deferred.prompt();
-      const choice = await deferred.userChoice;
+    // one-tap: prompt immediately if we have the event;
+    // otherwise pick up a late-arriving one and prompt in the same tap
+    const evt = deferred || window.__yoInstallEvent || null;
+    if (evt) {
+      evt.prompt();
+      const choice = await evt.userChoice;
       if (choice?.outcome === "accepted") {
         try {
           localStorage.setItem("yo-install-done", "1"); // permanent — installed
@@ -83,33 +87,42 @@ export default function InstallPill({ variant = "card" }) {
 
   if (gone) return null;
 
-  /* ── MOBILE — floating toast, on screen, above the composer ── */
+  /* ── MOBILE — premium floating install prompt ── */
   if (variant === "floating") {
     return (
-      <div className="sm:hidden fixed right-3 bottom-[84px] z-40 flex flex-col items-end gap-1.5">
+      <motion.div
+        initial={{ opacity: 0, y: 14 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        className="sm:hidden fixed right-3 bottom-[88px] z-40 w-[min(86vw,300px)] flex flex-col items-end gap-2"
+      >
         {showHint && (
-          <div className="max-w-[240px] rounded-xl border border-white/[0.12] bg-neutral-900/95 backdrop-blur-xl px-3 py-2 text-[11px] leading-snug text-gray-400 shadow-2xl shadow-black/50">
-            In Safari: tap <span className="text-gray-200">Share</span> ↓ , then
+          <div className="w-full rounded-xl border border-white/[0.10] bg-neutral-900/95 backdrop-blur-xl px-3.5 py-2.5 text-[11.5px] leading-snug text-gray-400 shadow-[0_12px_32px_-12px_rgba(0,0,0,0.7)]">
+            In Safari: tap <span className="text-gray-200">Share</span>, then
             choose <span className="text-gray-200">Add to Home Screen</span>.
           </div>
         )}
-        <div className="flex items-center gap-2 rounded-full border border-white/[0.12] bg-neutral-900/95 backdrop-blur-xl pl-3 pr-1.5 py-1.5 shadow-2xl shadow-black/50">
-          <Download size={13} className="shrink-0 text-gray-400" />
-          <button
-            onClick={install}
-            className="text-[12.5px] font-medium text-white whitespace-nowrap"
-          >
-            Install yo
-          </button>
+
+        <div className="relative w-full rounded-[20px] border border-white/[0.08] bg-[#111113] shadow-[0_18px_44px_-16px_rgba(0,0,0,0.75)] overflow-hidden">
           <button
             onClick={dismiss}
             aria-label="Dismiss"
-            className="shrink-0 w-6 h-6 flex items-center justify-center rounded-full text-gray-500 hover:text-white transition-colors"
+            className="absolute top-2.5 right-2.5 z-10 w-7 h-7 flex items-center justify-center rounded-full text-gray-500 hover:text-white hover:bg-white/[0.08] transition-colors"
           >
-            <X size={12} />
+            <X size={13} />
+          </button>
+
+          <button
+            onClick={install}
+            className="w-full flex flex-col items-center px-5 pt-6 pb-5 text-center"
+          >
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.05]">
+              <Download size={20} className="text-white" />
+            </span>
+            <span className="mt-3 text-[15px] font-medium text-white">Install YO</span>
           </button>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
