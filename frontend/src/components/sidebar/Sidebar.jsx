@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Trash2, X, PanelLeftClose, Pin, PinOff, Edit2, Check, XCircle, MoreVertical, Settings, Download, FileText, LogOut, ArrowLeft, ChevronRight } from "lucide-react";
 import LogoFlat from "../landing/LogoFlat";
+import InstallPill from "../InstallPill";
 import { Link, useNavigate } from "react-router-dom";
 import * as api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
@@ -594,6 +595,9 @@ export default function Sidebar({
             </div>
           )}
         </div>
+
+        {/* Install card — desktop only (mobile uses the floating toast) */}
+        <InstallPill variant="card" />
 
         {/* Export current chat — standalone action between history and account */}
         {activeChatId && (
