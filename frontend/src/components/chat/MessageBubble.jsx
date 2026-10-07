@@ -178,18 +178,18 @@ function MessageBubble({
       return (
         <div className="flex justify-end msg-enter">
           <div className="max-w-[85%] sm:max-w-md w-full">
-            {images && images.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2 justify-end">
-                {images.map((src, i) => (
-                  <img
-                    key={i}
-                    src={src}
-                    alt=""
-                    className="w-44 h-44 sm:w-52 sm:h-52 rounded-2xl object-cover border border-black/10"
-                  />
-                ))}
-              </div>
-            )}
+          {images && images.length > 0 && (
+            <div className="flex flex-col gap-2 mb-2 items-end">
+              {images.map((src, i) => (
+                <img
+                  key={i}
+                  src={src}
+                  alt=""
+                  className="max-w-full max-h-[420px] w-auto h-auto rounded-2xl border border-white/10"
+                />
+              ))}
+            </div>
+          )}
             <div className="
               bg-white/[0.08] rounded-2xl
               border border-white/[0.08]
@@ -260,15 +260,15 @@ function MessageBubble({
         onTouchMove={handleTouchMove}
         onContextMenu={(e) => e.preventDefault()}
       >
-        <div className="max-w-[85%] sm:max-w-md">
+        <div className="max-w-[85%] sm:max-w-md flex flex-col items-end">
           {images && images.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-2 justify-end">
+            <div className="flex flex-col gap-2 mb-2 items-end">
               {images.map((src, i) => (
                 <img
                   key={i}
                   src={src}
                   alt=""
-                  className="w-44 h-44 sm:w-52 sm:h-52 rounded-2xl object-cover border border-black/10"
+                  className="max-w-full max-h-[420px] w-auto h-auto rounded-2xl border border-white/10"
                 />
               ))}
             </div>
@@ -278,7 +278,12 @@ function MessageBubble({
     {(() => {
       const attachmentMatch = text.match(/\[attached:\s*(.*?)\]/i);
       const attachmentName = attachmentMatch?.[1]?.trim();
-      const visibleText = text.replace(/\s*\[attached:\s*.*?\]\s*/i, "").trim();
+      // hide the "[sent N image(s): ...]" label the backend stores —
+      // the image itself is rendered above the text pill
+      const visibleText = text
+        .replace(/\s*\[attached:\s*.*?\]\s*/i, "")
+        .replace(/\s*\[sent\s+\d+\s+image\(s\)[^\]]*\]\s*/i, "")
+        .trim();
 
       return (
         <>
@@ -318,7 +323,7 @@ function MessageBubble({
           )}
 
           {visibleText && (
-            <div className="bg-white/15 text-white rounded-2xl px-3.5 py-2 text-[14px] leading-snug break-words">
+            <div className="self-end bg-white/15 text-white rounded-2xl px-3.5 py-2 text-[14px] leading-snug break-words max-w-full w-fit">
               {visibleText}
             </div>
           )}

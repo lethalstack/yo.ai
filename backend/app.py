@@ -43,7 +43,7 @@ or_client = OpenRouterClient(
 
 # ── Models ──
 TEXT_MODEL = "openai/gpt-oss-120b"
-OR_VISION_MODEL = "google/gemini-2.0-flash-exp:free"
+OR_VISION_MODEL = "dots-studio/dots-3-note-preview:free"
 
 MAX_EXTRACTED_CHARS = 6000   # per uploaded document
 MAX_DOC_CONTEXT_CHARS = 12000  # total stored document context per chat
@@ -872,10 +872,10 @@ def chat():
     parts = []
     if user_message:
         parts.append(user_message)
-    image_names = [f.filename for f in uploaded_files if (f.content_type or "").startswith("image/")]
+    # Only filenames of non-image docs are stored (they surface as the
+    # attachment card). Image presence is implicit — the frontend renders
+    # them; no [sent N image(s)] label is embedded in the text.
     doc_names = [f.filename for f in uploaded_files if not (f.content_type or "").startswith("image/")]
-    if image_names:
-        parts.append(f"[sent {len(image_names)} image(s): {', '.join(image_names)}]")
     if doc_names:
         parts.append(f"[attached: {', '.join(doc_names)}]")
     stored_user_message = " ".join(parts) if parts else "(sent an attachment)"

@@ -297,6 +297,11 @@ setMessages(prev => [
       try {
         const fresh = await api.getChatMessages(currentChatId);
         if (Array.isArray(fresh.messages)) {
+          // re-attach this turn's image previews — the DB stores only the
+          // "[sent N image(s)]" text; blob URLs stay valid for the session
+          if (imagePreviews.length > 0 && fresh.messages.length > 0) {
+            fresh.messages[fresh.messages.length - 1].images = imagePreviews;
+          }
           setMessages(fresh.messages);
         }
       } catch (e) {
