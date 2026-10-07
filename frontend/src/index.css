@@ -265,8 +265,9 @@ pre code {
 
 /* mobile wrap position — sits with the pushed-down composition */
 .yo-ghost-wrap {
-  top: 32vh;
-  top: round(up, 32vh, 1px);
+  top: 38vh;
+  /* snap to whole pixels — fractional vh tops rasterize the SVG soft */
+  top: round(up, 38vh, 1px);
 }
 
 /* desktop wrap position — mark cropped above the viewport */
@@ -284,6 +285,19 @@ pre code {
   color: rgba(0, 0, 0, 0.08);
   -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 27%, transparent 70%);
   mask-image: linear-gradient(to bottom, #000 0%, #000 27%, transparent 70%);
+}
+
+/* personality streams — ambient drifting thoughts (mobile new chat) */
+.yo-stream {
+  animation-name: yoStreamDrift;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-fill-mode: both;
+}
+@keyframes yoStreamDrift {
+  0% { transform: translateX(0); }
+  65% { transform: translateX(calc(-100vw - 100%)); }
+  100% { transform: translateX(calc(-100vw - 100%)); }
 }
 
 /* mobile: two-ended fade — emerges from black, dissolves back (no blur) */

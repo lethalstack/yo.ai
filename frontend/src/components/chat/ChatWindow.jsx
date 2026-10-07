@@ -6,6 +6,7 @@ import { Link } from "react-router-dom";
 import MessageBubble from "./MessageBubble";
 import ChatInput from "./ChatInput";
 import QuizModal from "./QuizModal";
+import PersonalityStreams from "./PersonalityStreams";
 
 const EASE = [0.16, 1, 0.3, 1];
 
@@ -389,6 +390,10 @@ setMessages(prev => [
         </div>
       )}
 
+      {messages.length === 0 && (
+        <PersonalityStreams />
+      )}
+
       {sidebarCollapsed && (
         <button
           onClick={onExpandSidebar}
@@ -493,20 +498,20 @@ setMessages(prev => [
 
           <div className="h-full flex flex-col items-center px-4 pb-8">
             {/* intentional empty space above — the composition sits low */}
-            <div className="h-[44vh] sm:h-[24vh]" aria-hidden="true" />
+            <div className="h-[50vh] sm:h-[24vh]" aria-hidden="true" />
 
             {/* ═══ MOBILE — editorial hero · text mode selector · composer low ═══ */}
             <div className="lg:hidden w-full self-start pl-4 pr-4 order-1">
               <span className="block font-mono text-[16px] tracking-[0.04em] text-gray-400 pl-[2.1em]">
                   yo {userName}
                 </span>
-              <span className="yo-serif block whitespace-nowrap text-[clamp(26px,8.6vw,42px)] leading-[1.05] text-white mt-2">
+              <span className="yo-serif block whitespace-nowrap text-[clamp(26px,8.6vw,42px)] leading-[1.05] text-white mt-0">
                 Leave the rest to me
               </span>
             </div>
 
             {/* mobile modes — one quiet text line, not buttons */}
-            <div className="lg:hidden order-2 mt-9 self-start pl-4 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <div className="lg:hidden order-2 mt-4 self-start pl-4 flex flex-wrap items-center gap-x-2 gap-y-1">
               {Object.entries(MODE_META).map(([mode, meta], i) => (
                 <span key={mode} className="flex items-center gap-2">
                   {i > 0 && (
@@ -529,7 +534,7 @@ setMessages(prev => [
 
             {/* mobile composer — pinned toward the bottom */}
             {!chatId && (
-              <div className="lg:hidden order-3 w-full mt-7">
+              <div className="lg:hidden order-3 w-full mt-2">
                 <ChatInput
                   variant="compact"
                   resetSignal={resetSignal}
