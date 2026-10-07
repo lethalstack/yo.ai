@@ -288,8 +288,8 @@ function ChatInput({ resetSignal, showJumpButton, onJumpToLatest, onSend, varian
       {variant === "compact" && (
         <div className="w-full">
           <div
-            className={`relative w-full p-px overflow-hidden bg-white/[0.12] focus-within:bg-white/25 transition-[border-radius,background-color] duration-300 ${
-              multiline ? "rounded-2xl" : "rounded-full"
+            className={`relative w-full p-px overflow-hidden bg-white/[0.12] focus-within:bg-white/25 transition-colors duration-300 ${
+              multiline || attachments.length > 0 ? "rounded-2xl" : "rounded-full"
             }`}
           >
             <motion.div
@@ -299,11 +299,43 @@ function ChatInput({ resetSignal, showJumpButton, onJumpToLatest, onSend, varian
               animate={{ rotate: 360 }}
               transition={{ duration: 10, ease: "linear", repeat: Infinity }}
             />
+            {attachments.length > 0 && (
+              <div className="relative z-10 flex gap-2 px-2 pt-2 flex-wrap bg-neutral-900 rounded-t-[15px]">
+                {attachments.map((a) => (
+                  <div
+                    key={a.id}
+                    className="relative rounded-xl overflow-hidden border border-white/15"
+                  >
+                    {a.isImage ? (
+                      <img
+                        src={a.previewUrl}
+                        alt=""
+                        className="w-12 h-12 object-cover"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 flex items-center justify-center bg-white/[0.06]">
+                        <FileText size={16} className="text-gray-400" />
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(a.id)}
+                      aria-label="Remove attachment"
+                      className="absolute top-0.5 right-0.5 w-4 h-4 p-0.5 flex items-center justify-center rounded-full bg-black/70 text-gray-300 hover:text-white transition-colors"
+                    >
+                      <X size={9} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <div
-              className={`relative bg-neutral-900 pl-1.5 pr-1.5 flex items-center gap-1 transition-[border-radius] duration-300 ${
-                multiline
-                  ? "rounded-[15px] py-2 items-stretch"
-                  : "rounded-full py-1.5 items-center"
+              className={`relative bg-neutral-900 pl-1.5 pr-1.5 flex items-center gap-1 transition-colors duration-300 ${
+                attachments.length > 0
+                  ? "rounded-b-[15px] py-2 items-stretch"
+                  : multiline
+                    ? "rounded-[15px] py-2 items-stretch"
+                    : "rounded-full py-1.5 items-center"
               }`}
             >
               <button
