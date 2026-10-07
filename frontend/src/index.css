@@ -261,27 +261,38 @@ pre code {
   -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 12px, transparent 36px);
   mask-image: linear-gradient(to bottom, #000 0, #000 12px, transparent 36px);
 }
-/* ghost watermark — huge, top-pinned, dissolving downward. The vertical
-   mask is what makes it read premium: no bottom edge, it melts into the
-   page behind the hero text, exactly like the reference. */
+/* ═══ ghost watermark — single source of truth ═══ */
+
+/* mobile wrap position — sits with the pushed-down composition */
 .yo-ghost-wrap {
-  top: 26vh;
-  /* snap to whole pixels — fractional vh tops rasterize the SVG soft */
-  top: round(up, 26vh, 1px);
-}
-@media (min-width: 640px) {
-  .yo-ghost-wrap { top: -112px; } /* = -top-28 */
+  top: 32vh;
+  top: round(up, 32vh, 1px);
 }
 
+/* desktop wrap position — mark cropped above the viewport */
+@media (min-width: 640px) {
+  .yo-ghost-wrap { top: -112px; }
+}
+
+/* desktop: mark solid from the top, only the bottom dissolves */
 .yo-ghost {
   color: rgba(255, 255, 255, 0.10);
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 26%, transparent 72%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 26%, transparent 72%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 27%, transparent 70%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 27%, transparent 70%);
 }
 .light .yo-shell .yo-ghost {
-  color: rgba(0, 0, 0, 0.055);
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 26%, transparent 72%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 26%, transparent 72%);
+  color: rgba(0, 0, 0, 0.08);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 27%, transparent 70%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 27%, transparent 70%);
+}
+
+/* mobile: two-ended fade — emerges from black, dissolves back (no blur) */
+@media (max-width: 639px) {
+  .yo-ghost, .light .yo-shell .yo-ghost {
+    filter: none;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 14%, #000 27%, transparent 70%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 14%, #000 27%, transparent 70%);
+  }
 }
 
 /* auth page ghost — faint brand signature behind the auth card */

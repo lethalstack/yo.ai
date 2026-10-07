@@ -493,7 +493,7 @@ setMessages(prev => [
 
           <div className="h-full flex flex-col items-center px-4 pb-8">
             {/* intentional empty space above — the composition sits low */}
-            <div className="h-[38vh] sm:h-[24vh]" aria-hidden="true" />
+            <div className="h-[44vh] sm:h-[24vh]" aria-hidden="true" />
 
             {/* ═══ MOBILE — editorial hero · text mode selector · composer low ═══ */}
             <div className="lg:hidden w-full self-start pl-4 pr-4 order-1">
