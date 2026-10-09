@@ -459,6 +459,31 @@ pre code {
   line-height: 1.65;
 }
 
+/* headings — editorial hierarchy, modest scale, no decoration */
+.prose-chat h1 { font-size: 1.3rem; line-height: 1.25; }
+.prose-chat h2 { font-size: 1.12rem; line-height: 1.3; }
+.prose-chat h3 { font-size: 1rem; line-height: 1.35; }
+.prose-chat h4 { font-size: 0.95rem; line-height: 1.4; }
+
+/* links — restrained warm accent */
+.prose-chat a { color: #F5EBD0; }
+.prose-chat a:hover { color: #fff8e6; }
+
+/* inline code — flat typographic emphasis in the accent family */
+.prose-chat code:not(pre code) {
+  background: rgba(245, 235, 208, 0.06);
+  border: 1px solid rgba(245, 235, 208, 0.10);
+  border-radius: 4px;
+  color: #F5EBD0;
+}
+
+/* hr — quiet, only when explicitly requested */
+.prose-chat hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin: 1.75rem 0;
+}
+
 /* ── Ordered lists ─────────────────────────── */
 
 .prose-chat ol {
@@ -785,9 +810,17 @@ pre code {
 /* ── .prose-chat hardcoded whites (custom block above) ── */
 .light .yo-shell .prose-chat li > strong:first-child { color: #18181b; }
 .light .yo-shell .prose-chat ol > li::before { color: rgba(0, 0, 0, 0.35); }
+
+/* light-mode accent — muted warm from the same family, contrast-safe */
+.light .yo-shell .prose-chat a { color: #8a6f35; }
+.light .yo-shell .prose-chat a:hover { color: #6e5726; }
 .light .yo-shell .prose-chat code:not(pre code) {
-  background: rgba(0, 0, 0, 0.06);
+  background: rgba(0, 0, 0, 0.045);
   border-color: rgba(0, 0, 0, 0.08);
+  color: #7a5f2e;
+}
+.light .yo-shell .prose-chat hr {
+  border-top-color: rgba(0, 0, 0, 0.08);
 }
 
 /* streaming cursor on light canvas */
@@ -811,10 +844,10 @@ pre code {
 .light .yo-shell.text-white { color: #1a1a1a; }
 
 /* Code blocks — light in Light mode.
-   Wrapper: CodeBlock's bg-[#111] (confirmed in MessageBubble.jsx). */
-.light .yo-shell .bg-\[\#111\] {
+   Wrapper: CodeBlock's bg-[#101012] (updated in the response visual pass). */
+.light .yo-shell .bg-\[\#101012\] {
   background-color: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.08);
 }
 
 /* Code copy button hover inside the wrapper (unmapped text-white/60) */

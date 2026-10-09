@@ -6,7 +6,7 @@ import { useTheme } from "../context/ThemeContext";
 
 const ease = [0.16, 1, 0.3, 1];
 
-const HOLD_MS = 1700;   // brief splash — logo launch animation still plays, chat opens fast
+const HOLD_MS = 2750;   // brief splash — logo launch animation still plays, chat opens fast
 const EXIT_MS = 500;    // fade/scale-out duration before actually navigating
 
 export default function Loading() {

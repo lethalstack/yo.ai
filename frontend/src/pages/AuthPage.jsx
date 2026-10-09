@@ -200,7 +200,7 @@ if (!loading && user) {
         className="mb-7"
       >
         <Link to="/" aria-label="yo — home" className="flex items-center">
-          <LogoFlat size={30} />
+          <LogoFlat size={40} />
         </Link>
       </motion.div>
 

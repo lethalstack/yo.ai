@@ -34,7 +34,7 @@ function CodeBlock({ children, className }) {
   }
 
   return (
-    <div className="relative group/code rounded-2xl overflow-hidden bg-[#111] w-full">
+    <div className="relative group/code rounded-xl overflow-hidden bg-[#101012] border border-white/[0.07] w-full">
       <button
         onClick={handleCopy}
         className="
@@ -398,11 +398,12 @@ function MessageBubble({
               text-[15px] text-white/90
               prose-p:my-3
               prose-ul:my-3 prose-ol:my-3
-              prose-headings:mt-5 prose-headings:mb-2
+              prose-headings:font-semibold prose-headings:tracking-[-0.02em]
+              prose-headings:mt-6 prose-headings:mb-2.5
               prose-strong:text-white prose-strong:font-semibold
-              prose-code:text-white prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:text-[13px]
+              prose-code:text-[#F5EBD0] prose-code:px-1 prose-code:py-0.5 prose-code:rounded-sm prose-code:text-[12.5px] prose-code:font-normal
               prose-pre:overflow-x-auto
-              prose-a:text-white prose-a:underline prose-a:underline-offset-2
+              prose-a:text-[#F5EBD0] prose-a:underline prose-a:underline-offset-2 prose-a:decoration-[#F5EBD0]/40
             "
           >
 

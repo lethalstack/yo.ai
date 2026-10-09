@@ -87,7 +87,7 @@ export default function Closing() {
 
         {/* right — identity */}
         <Link to="/" aria-label="yo — home" className="flex items-center">
-          <LogoFlat size={20} />
+          <LogoFlat size={30} />
         </Link>
       </div>
     </>

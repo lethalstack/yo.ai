@@ -1,28 +1,24 @@
-/* Flat, static YO mark — same geometry as LogoMark, no animation.
-   White on dark themes, charcoal on light — via the existing .light class. */
 import { useTheme } from "../../context/ThemeContext";
 
-const PIECES = [
-  "M340 263H428V402L507 484V263H604V710L428 530V600L604 832V983L362 662L340 636Z",
-  "M641 263H760V353H727V718L760 678V822L641 973Z",
-  "M781 263H901V636L781 795V648L816 602V353H781Z",
-];
+/* Flat, static jellyfish mark — single silhouette, eyes as evenodd holes.
+   White on dark themes, dark ink on light — via the existing ThemeContext. */
+const MARK_D =
+  "M36 76 A64 64 0 0 1 164 76 V128 A9 9 0 0 1 146 128 V110.125 A4.625 4.625 0 0 0 136.75 110.125 V159.5 A9 9 0 0 1 118.75 159.5 V110.125 A4.625 4.625 0 0 0 109.5 110.125 V178.5 A9.5 9.5 0 0 1 90.5 178.5 V110.125 A4.625 4.625 0 0 0 81.25 110.125 V159.5 A9 9 0 0 1 63.25 159.5 V110.125 A4.625 4.625 0 0 0 54 110.125 V128 A9 9 0 0 1 36 128 Z M61.6 74 a10 10 0 1 0 20 0 a10 10 0 1 0 -20 0 Z M118.4 74 a10 10 0 1 0 20 0 a10 10 0 1 0 -20 0 Z";
 
 export default function LogoFlat({ size = 24, className, style }) {
   const { theme } = useTheme();
   const fill = theme === "light" ? "#1a1a1a" : "#ffffff";
   return (
     <svg
-      viewBox="320 243 601 760"
+      viewBox="0 0 200 200"
       width={size}
+      height={size}
       role="img"
       aria-label="yo"
       className={className}
-      style={{ display: "block", height: "auto", ...style }}
+      style={{ display: "block", ...style }}
     >
-      {PIECES.map((d, i) => (
-        <path key={i} d={d} fill={fill} />
-      ))}
+      <path d={MARK_D} fill={fill} fillRule="evenodd" />
     </svg>
   );
 }

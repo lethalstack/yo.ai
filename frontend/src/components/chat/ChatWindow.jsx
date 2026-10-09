@@ -382,11 +382,7 @@ setMessages(prev => [
           aria-hidden="true"
           className="yo-ghost yo-ghost-wrap pointer-events-none select-none absolute inset-x-0 mx-auto -z-10 w-[100vw] sm:w-[min(66vw,780px)]"
         >
-          <svg viewBox="320 243 601 760" className="block w-full h-auto" fill="currentColor" shapeRendering="geometricPrecision">
-            <path d="M340 263H428V402L507 484V263H604V710L428 530V600L604 832V983L362 662L340 636Z" />
-            <path d="M641 263H760V353H727V718L760 678V822L641 973Z" />
-            <path d="M781 263H901V636L781 795V648L816 602V353H781Z" />
-          </svg>
+
         </div>
       )}
 

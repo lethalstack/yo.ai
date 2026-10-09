@@ -6,6 +6,7 @@ import DropShowcase from "../components/landing/sections/DropShowcase";
 import LearnShowcase from "../components/landing/sections/LearnShowcase";
 import ModesShowcase from "../components/landing/ModesShowcase";
 import Closing from "../components/landing/Closing";
+import LandingInstallPill from "../components/LandingInstallPill";
 
 export default function AppPage() {
   return (
@@ -18,6 +19,7 @@ export default function AppPage() {
       <LearnShowcase />
       <ModesShowcase />
       <Closing />
+      <LandingInstallPill />
     </div>
   );
 }

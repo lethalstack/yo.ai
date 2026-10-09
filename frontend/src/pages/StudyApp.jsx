@@ -28,6 +28,7 @@ export default function StudyApp() {
   );
 
   const [chats, setChats] = useState([]);
+  const [chatsLoading, setChatsLoading] = useState(true);
   const [activeChatId, setActiveChatId] = useState(null);
   const [resetSignal, setResetSignal] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false); // mobile drawer state
@@ -48,6 +49,8 @@ export default function StudyApp() {
 
   } catch (error) {
     console.log("Failed to load chats", error);
+  } finally {
+    setChatsLoading(false);
   }
   }, []);
 
@@ -102,6 +105,7 @@ export default function StudyApp() {
 
       <Sidebar
         chats={chats}
+        chatsLoading={chatsLoading}
         activeChatId={activeChatId}
         onNewChat={handleNewChat}
         onSelectChat={handleSelectChat}

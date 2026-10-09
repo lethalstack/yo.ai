@@ -25,7 +25,8 @@ export default function Sidebar({
   onToggleCollapse,
   refreshChats,
   onHistoryCleared,
-  hasMessages
+  hasMessages,
+  chatsLoading
 }) {
   // restore the last dragged width — without this, every refresh snapped
   // back to the default and any resize the user did was silently lost
@@ -504,7 +505,7 @@ export default function Sidebar({
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
           <Link to="/" className="flex items-center hover:opacity-80 transition-opacity" aria-label="yo — home">
-            <LogoFlat size={15} />
+            <LogoFlat size={30} />
           </Link>
           <div className="flex items-center gap-1">
             <button
@@ -540,7 +541,19 @@ export default function Sidebar({
           className="flex-1 overflow-y-auto overflow-x-hidden px-3 mt-5 overscroll-contain"
           style={{ WebkitOverflowScrolling: "touch" }}
         >
-          {chats.length === 0 && (
+          {chatsLoading && chats.length === 0 && (
+            <div className="px-3 py-3 space-y-2.5" aria-label="Loading chats">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="h-9 rounded-full bg-white/[0.05] animate-pulse"
+                  style={{ animationDelay: `${i * 0.15}s`, width: `${88 - i * 14}%` }}
+                />
+              ))}
+            </div>
+          )}
+
+          {!chatsLoading && chats.length === 0 && (
             <p className="text-xs text-gray-600 px-3 py-2">No conversations yet</p>
           )}
 
